@@ -121,12 +121,14 @@ Bu rehber, herhangi bir yazılım tecrübesi olmayan kullanıcıların bile uygu
 3. **ÇOK ÖNEMLİ:** Yükleyicinin ilk ekranında en altta yer alan **"Add python.exe to PATH"** (Python'ı PATH'e ekle) kutucuğunu işaretleyin. Bunu işaretlemezseniz komut satırı araçları çalışmayacaktır.
 4. Kurulum adımlarını tamamlayın.
 
-### Adım 2: Komut Satırını Açma ve Klasöre Gitme
-1. Klavyenizden `Windows Tuşu + R` kombinasyonuna basın, açılan kutuya `cmd` yazıp Enter'a basın.
-2. Proje klasörünüzün bulunduğu dizine gidin (Örneğin Masaüstündeyse):
+### Adım 2: Projeyi Klonlama ve Dizine Geçiş
+1. Projeyi Git ile klonlayın (veya ZIP olarak indirip klasöre çıkartın):
    ```cmd
-   cd Desktop
-   cd "bittirme hoca dedin"
+   git clone https://github.com/tahakckk/HireLens.git
+   ```
+2. Komut satırını açıp proje dizinine geçiş yapın:
+   ```cmd
+   cd HireLens
    ```
 
 ### Adım 3: Sanal Ortam (Virtual Environment) Oluşturma

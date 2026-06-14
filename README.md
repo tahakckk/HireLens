@@ -122,12 +122,14 @@ This guide is designed to help anyone (even without technical programming experi
 3. **IMPORTANT:** On the very first window of the installer, check the box that says **"Add python.exe to PATH"**. If you skip this, the console commands will not work.
 4. Complete the installation wizard.
 
-### Phase 2: Open Terminal / command Prompt
-1. Press `Windows Key + R`, type `cmd`, and press Enter.
-2. Navigate to the project folder. For example, if you saved the project to your Desktop:
+### Phase 2: Clone and Navigate to the Repository
+1. Clone the repository using Git (or download and extract the ZIP file):
    ```cmd
-   cd Desktop
-   cd "bittirme hoca dedin"
+   git clone https://github.com/tahakckk/HireLens.git
+   ```
+2. Open your terminal or Command Prompt, and navigate to the project directory:
+   ```cmd
+   cd HireLens
    ```
 
 ### Phase 3: Create a Virtual Environment (Recommended)
