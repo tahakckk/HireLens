@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="AI Jobs Match — CV'ler ile iş ilanlarını semantik olarak eşleştiren AI destekli platform">
+    <title>{% block title %}AI Jobs Match{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="logo-icon"><i data-feather="zap"></i></span>
+                <span class="logo-text">AI Jobs Match</span>
+            </div>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}"
+                    id="nav-dashboard">
+                    <span class="nav-icon"><i data-feather="bar-chart-2"></i></span>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('upload_cv') }}"
+                    class="nav-link {% if request.endpoint == 'upload_cv' %}active{% endif %}" id="nav-upload">
+                    <span class="nav-icon"><i data-feather="file-text"></i></span>
+                    <span>CV Yükle</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('job_analysis') }}"
+                    class="nav-link {% if request.endpoint == 'job_analysis' %}active{% endif %}" id="nav-jobs">
+                    <span class="nav-icon"><i data-feather="briefcase"></i></span>
+                    <span>İş İlanları</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('job_search') }}"
+                    class="nav-link {% if request.endpoint == 'job_search' %}active{% endif %}" id="nav-job-search">
+                    <span class="nav-icon"><i data-feather="target"></i></span>
+                    <span>Özel CV Oluşturucu</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="tech-badge">
+                <!--  <span><i data-feather="cpu"></i> SBERT + spaCy + Flask</span>-->
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Bar -->
+        <header class="topbar">
+            <button class="menu-toggle" id="menuToggle" aria-label="Menüyü aç/kapat">
+                <span></span><span></span><span></span>
+            </button>
+            <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+            <div class="topbar-right">
+                <!--<span class="status-indicator online"></span>
+                <span class="status-text">NLP Engine Aktif</span>-->
+            </div>
+        </header>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-container">
+            {% for category, message in messages %}
+            <div class="flash-message flash-{{ category }}" role="alert">
+                <span class="flash-icon">
+                    {% if category == 'success' %}<i data-feather="check-circle"></i>{% elif category == 'error' %}<i
+                        data-feather="x-circle"></i>{% else %}<i data-feather="info"></i>{% endif %}
+                </span>
+                <span>{{ message }}</span>
+                <button class="flash-close" onclick="this.parentElement.remove()" aria-label="Kapat">&times;</button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <!-- Page Content -->
+        <div class="content-area">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v={{ range(10000, 99999) | random }}"></script>
+    {% block scripts %}{% endblock %}
+    <script>
+        feather.replace()
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}CV Yükle — AI Jobs Match{% endblock %}
+{% block page_title %}CV Yükle{% endblock %}
+
+{% block content %}
+<div class="layout-split">
+<div class="split-col-left">
+<!-- Upload Area -->
+<div class="glass-card upload-section">
+    <div class="card-header">
+        <h3><i data-feather="upload"></i> PDF CV Yükle</h3>
+        <span class="badge">Çoklu dosya desteklenir</span>
+    </div>
+    <div class="card-body">
+        <form action="{{ url_for('upload_cv') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-zone-content">
+                    <div class="drop-icon">📁</div>
+                    <h3>CV dosyalarınızı buraya sürükleyin</h3>
+                    <p>veya dosya seçmek için tıklayın</p>
+                    <span class="drop-hint">Sadece PDF formatı • Maksimum 16MB</span>
+                </div>
+                <input type="file" name="files" id="fileInput" multiple accept=".pdf" class="file-input">
+            </div>
+
+            <!-- Selected Files Preview -->
+            <div class="file-preview-list" id="filePreview" style="display:none;">
+                <h4>Seçilen Dosyalar:</h4>
+                <div id="fileList"></div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg" id="uploadBtn" style="display:none;">
+                <span class="btn-icon">🚀</span>
+                <span>Yükle ve Analiz Et</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Processing Info -->
+<div class="glass-card info-card">
+    <div class="card-body">
+        <h4><i data-feather="cpu"></i> Otomatik İşlem Adımları</h4>
+        <div class="process-steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-info">
+                    <strong>Metin Çıkarma</strong>
+                    <span>PDF'den metin otomatik extract edilir</span>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-info">
+                    <strong>Metin Temizleme</strong>
+                    <span>URL, özel karakter ve gürültü temizlenir</span>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-info">
+                    <strong>Yetenek Çıkarma</strong>
+                    <span>spaCy NER ile yetenekler otomatik tespit edilir</span>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-info">
+                    <strong>Vektörizasyon</strong>
+                    <span>SBERT ile semantik vektöre dönüştürülür</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+<div class="split-col-right">
+<!-- CV List -->
+<div class="glass-card">
+    <div class="card-header">
+        <h3><i data-feather="clipboard"></i> Yüklü CV'ler ({{ cvs|length }})</h3>
+    </div>
+    <div class="card-body">
+        {% if cvs %}
+        <div class="cv-grid">
+            {% for cv in cvs %}
+            <div class="cv-card" id="cv-{{ cv['id'] }}">
+                <div class="cv-card-header">
+                    <span class="cv-icon"><i data-feather="user"></i></span>
+                    <div class="cv-meta">
+                        <strong class="cv-filename">{{ cv['filename'] }}</strong>
+                        <div class="cv-badges-small" style="display:flex; gap:6px; margin-top:2px;">
+                            <span class="cv-date">{{ cv['uploaded_at']|format_date }}</span>
+                            {% set exp_years = (cv['experience_months']|default(0) // 12) %}
+                            {% set exp_months = (cv['experience_months']|default(0) % 12) %}
+                            <span class="badge badge-experience-sm" title="Toplam İş Deneyimi">
+                                <i data-feather="briefcase" style="width:10px; height:10px;"></i> {{ exp_years }}y {{ exp_months }}a
+                            </span>
+                        </div>
+                    </div>
+                    <div class="cv-actions-top" style="display:flex; gap:8px;">
+                        {% if cv['file_path'] %}
+                        <a href="{{ url_for('download_cv_file', cv_id=cv['id']) }}" class="btn-icon-only btn-ghost" title="PDF İndir" aria-label="PDF İndir"><i data-feather="download"></i></a>
+                        {% endif %}
+                        <button class="btn-icon-only btn-danger-ghost" onclick="deleteCV('{{ cv.id }}')"
+                                title="CV'yi sil" aria-label="CV'yi sil">🗑️</button>
+                    </div>
+                </div>
+                <div class="cv-skills">
+                    <span class="skills-label">Tespit Edilen Yetenekler:</span>
+                    <div class="skill-tags">
+                        {% set skills = cv['extracted_skills']|parse_json %}
+                        {% for skill in skills %}
+                        <span class="skill-tag {% if loop.index > 12 %}skill-hidden{% endif %}">{{ skill }}</span>
+                        {% endfor %}
+                        {% if skills|length > 12 %}
+                        <button type="button" class="skill-tag skill-tag-more" onclick="toggleSkills(this)" data-hidden-count="{{ skills|length - 12 }}">+{{ skills|length - 12 }} daha</button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <span class="empty-icon"><i data-feather="inbox"></i></span>
+            <p>Henüz CV yüklenmemiş</p>
+            <span class="empty-hint">Yukarıdaki alanı kullanarak PDF formatında CV yükleyin</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+</div>
+{% endblock %}

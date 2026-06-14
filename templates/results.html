@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+
+{% block title %}Sonuçlar — {{ job['title'] }} — AI Jobs Match{% endblock %}
+{% block page_title %}Eşleştirme Sonuçları{% endblock %}
+
+{% block content %}
+<!-- Job Info Header -->
+<div class="glass-card result-header-card">
+    <div class="result-job-info">
+        <div>
+            <span class="result-label">İş İlanı</span>
+            <h2 class="result-job-title">{{ job['title'] }}</h2>
+        </div>
+        <div class="result-meta">
+            {% set job_skills = job['required_skills']|parse_json %}
+            {% set must_have = job['must_have_skills']|parse_json if job['must_have_skills'] else [] %}
+            <div class="result-stat">
+                <span class="result-stat-number">{{ job_skills|length }}</span>
+                <span class="result-stat-label">Toplam Yetenek</span>
+            </div>
+            <div class="result-stat">
+                <span class="result-stat-number">{{ must_have|length }}</span>
+                <span class="result-stat-label">Zorunlu</span>
+            </div>
+            <div class="result-stat">
+                <span class="result-stat-number">{{ matches|length }}</span>
+                <span class="result-stat-label">Aday CV</span>
+            </div>
+        </div>
+    </div>
+    <div class="result-required-skills">
+        <span class="skills-label">Aranan Yetenekler:</span>
+        <div class="skill-tags">
+            {% for skill in job_skills %}
+            <span class="skill-tag {% if skill in must_have %}skill-tag-must{% else %}skill-tag-required{% endif %}">
+                {% if skill in must_have %}<i data-feather="zap"></i>{% endif %} {{ skill }}
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Results -->
+{% if matches %}
+<div class="section-header">
+    <div class="section-title-group">
+        <i data-feather="award" class="header-icon"></i>
+        <h2>Aday Sıralaması</h2>
+    </div>
+    <span class="section-subtitle">Semantik, Yetenek ve Zorunlu Kriter analizi ile sıralanmıştır.</span>
+</div>
+
+<div class="results-list">
+    {% for match in matches %}
+    <div class="result-card rank-{{ loop.index }}" id="result-{{ loop.index }}">
+        <!-- Rank Badge -->
+        <div class="rank-badge {% if loop.index <= 3 %}rank-top{% endif %}">
+            {% if loop.index == 1 %}1.
+            {% elif loop.index == 2 %}2.
+            {% elif loop.index == 3 %}3.
+            {% else %}#{{ loop.index }}
+            {% endif %}
+        </div>
+
+        <div class="result-card-content">
+            <!-- Header: Name & Experience -->
+            <div class="result-card-header-v3">
+                <div class="candidate-primary">
+                    <h3 class="candidate-name">{{ match['filename'] }}</h3>
+                    <div class="experience-badges">
+                        {% set exp_years = (match['experience_months']|default(0) // 12) %}
+                        {% set exp_months = (match['experience_months']|default(0) % 12) %}
+                        <span class="badge badge-experience" title="Toplam İş Deneyimi">
+                            <i data-feather="briefcase"></i> {{ exp_years }}y {{ exp_months }}a
+                        </span>
+
+                        {% set gaps = match['timeline_gaps']|parse_json if match['timeline_gaps'] else [] %}
+                        {% if gaps %}
+                        <span class="badge badge-gap" title="Kariyer Boşluğu Tespit Edildi">
+                            <i data-feather="alert-circle"></i> {{ gaps|length }} Boşluk
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if match['is_disqualified'] %}
+                <div class="disqualified-tag">
+                    <i data-feather="slash"></i> Kritik Kriter Eksik
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Body: Left Metrics / Right Final Score -->
+            <div class="scorecard-v3">
+                <div class="score-left">
+                    {% set breakdown = match['detail_metrics']|parse_json if match['detail_metrics'] else {} %}
+                    <div class="metric-row"
+                        title="Format: {{ breakdown.get('format', {}).get('structure', 0) }}p Yapı, {{ breakdown.get('format', {}).get('design', 0) }}p Tasarım">
+                        <div class="metric-icon-wrap"><i data-feather="layout"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">Format</span>
+                            <span class="metric-value">{{ match['format_score']|round|int }}/40</span>
+                            <div class="metric-mini-breakdown">
+                                <span>Yapı: {{ breakdown.get('format', {}).get('structure', 0) }}</span>
+                                <span>Tas: {{ breakdown.get('format', {}).get('design', 0) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="metric-row"
+                        title="Yetenek: {{ breakdown.get('skills', {}).get('title', 0) }}p Unvan, Hard/Soft Dengesi">
+                        <div class="metric-icon-wrap"><i data-feather="target"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">Yetenek</span>
+                            <span class="metric-value">{{ match['keyword_score']|round|int }}/40</span>
+                            <div class="metric-mini-breakdown">
+                                <span>Unvan: {{ breakdown.get('skills', {}).get('title', 0)|round|int }}p</span>
+                                <span>H: %{{ breakdown.get('skills', {}).get('hard', 0)|int }}</span>
+                                <span>S: %{{ breakdown.get('skills', {}).get('soft', 0)|int }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="metric-row" title="Bölüm Bütünlüğü (%20)">
+                        <div class="metric-icon-wrap"><i data-feather="layers"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">Bölüm</span>
+                            <span class="metric-value">{{ match['section_score']|round|int }}/20</span>
+                            <div class="metric-mini-breakdown">
+                                <span>{{ match['sections_found']|parse_json|length }}/5 Standart Başlık</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="score-right">
+                    <div class="match-score-circle-v3" data-score="{% if match['match_score'] % 1 == 0 %}{{ match['match_score']|int }}{% else %}{{ '%.2f'|format(match['match_score']) }}{% endif %}">
+                        <svg viewBox="0 0 100 100">
+                            <circle class="score-bg" cx="50" cy="50" r="44"></circle>
+                            <circle class="score-fill" cx="50" cy="50" r="44"
+                                stroke-dasharray="{{ (match['match_score'] / 100) * 276.46 }} 276.46"></circle>
+                        </svg>
+                        <div class="score-content">
+                            <span class="score-text">%{% if match['match_score'] % 1 == 0 %}{{ match['match_score']|int }}{% else %}{{ '%.2f'|format(match['match_score']) }}{% endif %}</span>
+                            <span class="score-sub"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% set matching = match['matching_skills']|parse_json %}
+            {% set semantic = match['semantic_matches']|parse_json if match['semantic_matches'] else [] %}
+            {% set missing = match['missing_skills']|parse_json %}
+            {% set extra = match['extra_skills']|parse_json %}
+
+            <!-- Warning and Bonus Badges -->
+            <div class="match-badges">
+                {% if match['is_pretty_resume'] == 1 %}
+                <span class="badge badge-pretty-tax"
+                    title="Tasarım (Canva/Sütun/Grafik) nedeniyle ATS puanı düşürülmüştür.">
+                    <i data-feather="alert-octagon"></i> Pretty Resume Tax
+                </span>
+                {% endif %}
+
+                {% if match['language_match'] == 0 %}
+                <span class="badge badge-warning" title="İlan: {{ match['job_lang'] }}, CV: {{ match['cv_lang'] }}">
+                    <i data-feather="globe"></i> Dil Uyuşmazlığı
+                </span>
+                {% else %}
+                <span class="badge badge-success"><i data-feather="check-circle"></i> Dil Uyumu</span>
+                {% endif %}
+
+                {% if match['title_match_bonus'] > 0 %}
+                <span class="badge badge-bonus" title="İş unvanı semantik olarak %57 ve üzeri eşleşti.">
+                    <i data-feather="trending-up"></i> Unvan Uyumu
+                </span>
+                {% endif %}
+
+                {% if match['penalty_applied'] > 0 %}
+                <span class="badge badge-penalty" title="Zorunlu yetenek eksikliği cezası">
+                    <i data-feather="minus-circle"></i> -{{ match['penalty_applied']|round|int }}p Ceza
+                </span>
+                {% endif %}
+            </div>
+
+            {% if missing_musts %}
+            <div class="critical-alert">
+                <i data-feather="alert-triangle"></i> Kritik Eksik Kriterler:
+                <div class="missing-must-tags">
+                    {% for ms in missing_musts %}<span class="missing-tag">{{ ms }}</span>{% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Skills Detail (Collapsible) -->
+            <details class="skills-detail">
+                <summary class="skills-detail-toggle">
+                    <span>Detaylı Yetenek Analizi</span>
+                    <i data-feather="chevron-down" class="toggle-icon"></i>
+                </summary>
+                <div class="skills-detail-content">
+                    <!-- Exact Matching Skills -->
+                    {% if matching %}
+                    <div class="skill-group">
+                        <span class="skill-group-label skill-match-label"><i data-feather="check-circle"></i> Birebir
+                            Eşleşen ({{ matching|length }})</span>
+                        <div class="skill-tags">
+                            {% for skill in matching %}
+                            <span class="skill-tag skill-tag-match">{{ skill }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Semantic Matches -->
+                    {% if semantic %}
+                    <div class="skill-group">
+                        <span class="skill-group-label skill-semantic-label"><i data-feather="link"></i> Semantik
+                            Eşleşme ({{ semantic|length }})</span>
+                        <div class="skill-tags">
+                            {% for sm in semantic %}
+                            <span class="skill-tag skill-tag-semantic"
+                                title="Benzerlik: %{{ (sm['similarity'] * 100)|round(1) }}">
+                                {{ sm['job_skill'] }} ≈ {{ sm['cv_skill'] }}
+                                <small>(%{{ (sm['similarity'] * 100)|round(0)|int }})</small>
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Missing Must-Have Skills -->
+                    {% if missing_musts %}
+                    <div class="skill-group">
+                        <span class="skill-group-label skill-must-missing-label"><i data-feather="slash"></i> Eksik
+                            Zorunlu Yetenekler ({{ missing_musts|length }})</span>
+                        <div class="skill-tags">
+                            {% for skill in missing_musts %}
+                            <span class="skill-tag skill-tag-must-missing"><i data-feather="zap"></i> {{ skill }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Missing Skills -->
+                    {% if missing %}
+                    <div class="skill-group">
+                        <span class="skill-group-label skill-missing-label"><i data-feather="x-circle"></i> Eksik
+                            Yetenekler ({{ missing|length }})</span>
+                        <div class="skill-tags">
+                            {% for skill in missing %}
+                            <span class="skill-tag skill-tag-missing">{{ skill }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Extra Skills -->
+                    {% if extra %}
+                    <div class="skill-group">
+                        <span class="skill-group-label skill-extra-label"><i data-feather="plus-circle"></i> Ek
+                            Yetenekler ({{ extra|length }})</span>
+                        <div class="skill-tags">
+                            {% for skill in extra %}
+                            <span class="skill-tag skill-tag-extra {% if loop.index > 20 %}skill-hidden{% endif %}">{{
+                                skill }}</span>
+                            {% endfor %}
+                            {% if extra|length > 20 %}
+                            <button type="button" class="skill-tag skill-tag-more" onclick="toggleSkills(this)"
+                                data-hidden-count="{{ extra|length - 20 }}">+{{ extra|length - 20 }} daha</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </details>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="glass-card">
+    <div class="card-body">
+        <div class="empty-state">
+            <span class="empty-icon"><i data-feather="search"></i></span>
+            <p>Henüz eşleştirme yapılmamış</p>
+            <a href="{{ url_for('job_analysis') }}" class="btn btn-primary">İş İlanları Sayfasına Git</a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Back Button -->
+<div class="result-actions">
+    <a href="{{ url_for('job_analysis') }}" class="btn btn-ghost">← İş İlanlarına Dön</a>
+    <a href="{{ url_for('index') }}" class="btn btn-ghost"><i data-feather="bar-chart-2"></i> Dashboard'a Git</a>
+</div>
+{% endblock %}

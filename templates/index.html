@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — AI Jobs Match{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div class="stats-grid">
+    <div class="stat-card" id="stat-cvs">
+        <div class="stat-icon-wrap gradient-purple">
+            <span class="stat-icon"><i data-feather="file-text"></i></span>
+        </div>
+        <div class="stat-info">
+            <span class="stat-number" data-count="{{ cv_count }}">{{ cv_count }}</span>
+            <span class="stat-label">Yüklü CV</span>
+        </div>
+    </div>
+
+    <div class="stat-card" id="stat-jobs">
+        <div class="stat-icon-wrap gradient-blue">
+            <span class="stat-icon"><i data-feather="briefcase"></i></span>
+        </div>
+        <div class="stat-info">
+            <span class="stat-number" data-count="{{ job_count }}">{{ job_count }}</span>
+            <span class="stat-label">İş İlanı</span>
+        </div>
+    </div>
+
+    <div class="stat-card" id="stat-matches">
+        <div class="stat-icon-wrap gradient-green">
+            <span class="stat-icon"><i data-feather="link"></i></span>
+        </div>
+        <div class="stat-info">
+            <span class="stat-number" data-count="{{ match_count }}">{{ match_count }}</span>
+            <span class="stat-label">Eşleştirme</span>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="section-header">
+    <h2>Hızlı İşlemler</h2>
+</div>
+<div class="actions-grid">
+    <a href="{{ url_for('upload_cv') }}" class="action-card" id="action-upload">
+        <div class="action-icon"><i data-feather="upload"></i></div>
+        <h3>CV Yükle</h3>
+        <p>PDF formatında CV yükleyin, AI otomatik analiz etsin</p>
+    </a>
+    <a href="{{ url_for('job_analysis') }}" class="action-card" id="action-job">
+        <div class="action-icon"><i data-feather="search"></i></div>
+        <h3>İş İlanı Ekle</h3>
+        <p>İş ilanı girin, gereken yetenekleri otomatik tespit edin</p>
+    </a>
+</div>
+
+<!-- Recent Activity -->
+<div class="two-col-grid">
+    <!-- Recent CVs -->
+    <div class="glass-card">
+        <div class="card-header">
+            <h3><i data-feather="file-text"></i> Son Yüklenen CV'ler</h3>
+            <a href="{{ url_for('upload_cv') }}" class="card-link">Tümünü Gör →</a>
+        </div>
+        <div class="card-body">
+            {% if recent_cvs %}
+                {% for cv in recent_cvs %}
+                <div class="list-item">
+                    <div class="list-item-left">
+                        <span class="list-item-icon"><i data-feather="user"></i></span>
+                        <div>
+                            <span class="list-item-title">{{ cv['filename'] }}</span>
+                            <span class="list-item-subtitle">
+                                {% set skills = cv['extracted_skills']|parse_json %}
+                                {{ skills|length }} yetenek tespit edildi
+                            </span>
+                        </div>
+                    </div>
+                    <span class="list-item-date">{{ cv['uploaded_at']|format_date }}</span>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <span class="empty-icon"><i data-feather="inbox"></i></span>
+                    <p>Henüz CV yüklenmemiş</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recent Jobs -->
+    <div class="glass-card">
+        <div class="card-header">
+            <h3><i data-feather="briefcase"></i> Son İş İlanları</h3>
+            <a href="{{ url_for('job_analysis') }}" class="card-link">Tümünü Gör →</a>
+        </div>
+        <div class="card-body">
+            {% if recent_jobs %}
+                {% for job in recent_jobs %}
+                <div class="list-item">
+                    <div class="list-item-left">
+                        <span class="list-item-icon"><i data-feather="home"></i></span>
+                        <div>
+                            <span class="list-item-title">{{ job['title'] }}</span>
+                            <span class="list-item-subtitle">
+                                {% set skills = job['required_skills']|parse_json %}
+                                {{ skills|length }} yetenek gerekiyor
+                            </span>
+                        </div>
+                    </div>
+                    <span class="list-item-date">{{ job['created_at']|format_date }}</span>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <span class="empty-icon"><i data-feather="inbox"></i></span>
+                    <p>Henüz iş ilanı eklenmemiş</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

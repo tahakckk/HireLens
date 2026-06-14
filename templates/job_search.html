@@ -1,0 +1,1094 @@
+{% extends "base.html" %}
+
+{% block title %}İş Arama — AI Jobs Match{% endblock %}
+{% block page_title %}İş Arama{% endblock %}
+
+{% block content %}
+<!-- Wizard Steps Indicator -->
+<div class="wizard-steps" id="wizardSteps">
+    <div class="wizard-step active" data-step="1" id="wizardStep1">
+        <div class="wizard-step-number">1</div>
+        <div class="wizard-step-info">
+            <span class="wizard-step-title">CV Yükle</span>
+            <span class="wizard-step-desc">PDF formatında CV'nizi yükleyin</span>
+        </div>
+    </div>
+    <div class="wizard-step-connector"></div>
+    <div class="wizard-step" data-step="2" id="wizardStep2">
+        <div class="wizard-step-number">2</div>
+        <div class="wizard-step-info">
+            <span class="wizard-step-title">İlan Bilgisi</span>
+            <span class="wizard-step-desc">Başvuracağınız ilanı girin</span>
+        </div>
+    </div>
+    <div class="wizard-step-connector"></div>
+    <div class="wizard-step" data-step="3" id="wizardStep3">
+        <div class="wizard-step-number">3</div>
+        <div class="wizard-step-info">
+            <span class="wizard-step-title">CV Oluştur</span>
+            <span class="wizard-step-desc">AI ile optimize CV oluşturun</span>
+        </div>
+    </div>
+</div>
+
+<div class="layout-split">
+    <div class="split-col-left">
+        <!-- ═════════════════════════════════════════ -->
+        <!-- STEP 1: CV Upload -->
+        <!-- ═════════════════════════════════════════ -->
+        <div class="wizard-panel active" id="panel1">
+            <div class="glass-card">
+                <div class="card-header">
+                    <h3><i data-feather="file-text"></i> CV Yükle & Profil Oluştur</h3>
+                    <span class="badge">Adım 1/3</span>
+                </div>
+                <div class="card-body">
+                    <!-- Info -->
+                    <div class="info-banner">
+                        <span class="info-banner-icon"><i data-feather="help-circle"></i></span>
+                        <div>
+                            <strong>Nasıl Çalışır?</strong>
+                            <p>CV'nizi PDF olarak yükleyin. Yapay zeka tüm bilgilerinizi otomatik olarak çıkaracak ve
+                                bir profil oluşturacak. Bu profil, iş ilanlarına özel CV oluşturmak için kullanılacak.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Upload Area -->
+                    <div class="drop-zone" id="jsDropZone">
+                        <div class="drop-zone-content">
+                            <div class="drop-icon"><i data-feather="upload"></i></div>
+                            <h3>CV'nizi Sürükle & Bırak</h3>
+                            <p>veya dosya seçmek için tıklayın</p>
+                            <span class="drop-hint">Sadece PDF • Maks 16MB</span>
+                        </div>
+                        <input type="file" accept=".pdf" class="file-input" id="jsFileInput">
+                    </div>
+
+                    <!-- File Selected Preview -->
+                    <div class="file-selected-preview" id="jsFileSelected" style="display:none;">
+                        <div class="file-selected-info">
+                            <span class="file-selected-icon"><i data-feather="file-text"></i></span>
+                            <span class="file-selected-name" id="jsFileName"></span>
+                            <span class="file-selected-size" id="jsFileSize"></span>
+                        </div>
+                        <button class="btn btn-primary" id="jsUploadBtn" onclick="uploadCV()">
+                            <span class="btn-icon"><i data-feather="search"></i></span>
+                            Yükle & Analiz Et
+                        </button>
+                    </div>
+
+                    <!-- Upload Progress -->
+                    <div class="upload-progress" id="jsUploadProgress" style="display:none;">
+                        <div class="upload-progress-bar">
+                            <div class="upload-progress-fill" id="jsProgressFill"></div>
+                        </div>
+                        <div class="upload-progress-text" id="jsProgressText">CV analiz ediliyor...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Preview (appears after upload) -->
+            <div class="glass-card profile-preview-card" id="jsProfilePreview" style="display:none;">
+                <div class="card-header">
+                    <h3><i data-feather="check-circle"></i> Profil Oluşturuldu</h3>
+                    <button class="btn btn-primary" onclick="goToStep(2)">
+                        Devam Et →
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="profile-grid" id="jsProfileGrid">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═════════════════════════════════════════ -->
+        <!-- STEP 2: Job Information -->
+        <!-- ═════════════════════════════════════════ -->
+        <div class="wizard-panel" id="panel2">
+            <div class="glass-card">
+                <div class="card-header">
+                    <h3><i data-feather="link"></i> İlan Bilgisi Gir</h3>
+                    <span class="badge">Adım 2/3</span>
+                </div>
+                <div class="card-body">
+                    <!-- Method Tabs -->
+                    <div class="method-tabs">
+                        <button class="method-tab active" onclick="switchJobMethod('url')" id="tabUrl">
+                            <i data-feather="link"></i> LinkedIn Linki
+                        </button>
+                        <button class="method-tab" onclick="switchJobMethod('manual')" id="tabManual">
+                            <i data-feather="edit-2"></i> Manuel Giriş
+                        </button>
+                    </div>
+
+                    <!-- LinkedIn URL Method -->
+                    <div class="method-panel active" id="methodUrl">
+                        <div class="form-group">
+                            <label class="form-label" for="linkedinUrl">LinkedIn İlan Linki</label>
+                            <div class="url-input-group">
+                                <span class="url-input-prefix"><i data-feather="link"></i></span>
+                                <input type="url" class="form-input url-input" id="linkedinUrl"
+                                    placeholder="https://www.linkedin.com/jobs/view/1234567890">
+                            </div>
+                            <span class="form-hint">LinkedIn iş ilanının tam URL'sini yapıştırın.</span>
+                        </div>
+                        <button class="btn btn-primary" onclick="parseJobUrl()">
+                            <span class="btn-icon"><i data-feather="search"></i></span>
+                            İlanı Parse Et
+                        </button>
+                    </div>
+
+                    <!-- Manual Method -->
+                    <div class="method-panel" id="methodManual">
+                        <div class="form-group">
+                            <label class="form-label" for="manualTitle">İlan Başlığı</label>
+                            <input type="text" class="form-input" id="manualTitle"
+                                placeholder="Örn: Senior Software Engineer">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="manualCompany">Şirket Adı <span
+                                    class="optional-badge">(opsiyonel)</span></label>
+                            <input type="text" class="form-input" id="manualCompany" placeholder="Örn: Google">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="manualText">İlan Açıklaması</label>
+                            <textarea class="form-textarea" id="manualText" rows="10"
+                                placeholder="İş ilanının tam açıklamasını buraya yapıştırın..."></textarea>
+                            <span class="form-hint">LinkedIn veya diğer platformdaki ilan metnini kopyalayıp
+                                yapıştırın.</span>
+                        </div>
+                        <button class="btn btn-primary" onclick="parseJobManual()">
+                            <span class="btn-icon"><i data-feather="search"></i></span>
+                            İlanı Analiz Et
+                        </button>
+                    </div>
+
+                    <!-- Job Parse Progress -->
+                    <div class="upload-progress" id="jsJobProgress" style="display:none;">
+                        <div class="upload-progress-bar">
+                            <div class="upload-progress-fill" id="jsJobProgressFill"></div>
+                        </div>
+                        <div class="upload-progress-text" id="jsJobProgressText">İlan analiz ediliyor...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parsed Job Preview -->
+            <div class="glass-card" id="jsJobPreview" style="display:none;">
+                <div class="card-header">
+                    <h3><i data-feather="check-circle"></i> İlan Bilgileri</h3>
+                    <button class="btn btn-primary" onclick="goToStep(3)">
+                        Devam Et →
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="job-preview-content" id="jsJobPreviewContent">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="wizard-nav">
+                <button class="btn btn-ghost" onclick="goToStep(1)">← Geri</button>
+            </div>
+        </div>
+
+        <!-- ═════════════════════════════════════════ -->
+        <!-- STEP 3: Generate CV -->
+        <!-- ═════════════════════════════════════════ -->
+        <div class="wizard-panel" id="panel3">
+            <div class="glass-card">
+                <div class="card-header">
+                    <h3><i data-feather="cpu"></i> Optimize CV Oluştur</h3>
+                    <span class="badge">Adım 3/3</span>
+                </div>
+                <div class="card-body">
+                    <!-- Summary before generation -->
+                    <div class="generation-summary" id="jsGenerationSummary">
+                        <div class="summary-row">
+                            <div class="summary-item">
+                                <span class="summary-icon"><i data-feather="user"></i></span>
+                                <div>
+                                    <strong>Profiliniz</strong>
+                                    <span id="jsSummaryProfile">—</span>
+                                </div>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-icon"><i data-feather="briefcase"></i></span>
+                                <div>
+                                    <strong>Hedef İlan</strong>
+                                    <span id="jsSummaryJob">—</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="generation-info">
+                            <span class="info-banner-icon"><i data-feather="cpu"></i></span>
+                            <p>Sistem, profilinizi ve ilan gereksinimlerini analiz ederek size özel, ATS uyumlu bir
+                                CV oluşturacak. Bu CV, ilandaki anahtar kelimeleri vurgulayarak görünürlüğünüzü
+                                artıracak.</p>
+                        </div>
+                        <button class="btn btn-accent btn-lg" id="jsGenerateBtn" onclick="generateCV()">
+                            <span class="btn-icon"><i data-feather="zap"></i></span>
+                            CV Oluştur
+                        </button>
+                    </div>
+
+                    <!-- Generation Progress -->
+                    <div class="generation-progress" id="jsGenProgress" style="display:none;">
+                        <div class="gen-spinner"></div>
+                        <div class="gen-progress-text">
+                            <h4>CV oluşturuluyor...</h4>
+                            <p>Sistem, profilinizi ve ilan gereksinimlerini analiz ediyor. Bu 15-30 saniye sürebilir.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generated CV Preview -->
+            <div class="glass-card" id="jsGeneratedCV" style="display:none;">
+                <div class="card-header">
+                    <h3><i data-feather="award"></i> Optimize CV Hazır!</h3>
+                    <div class="cv-actions" style="display:flex; gap:10px;">
+                        <button class="btn btn-primary" id="jsDownloadBtnPdf" onclick="downloadCV('pdf')">
+                            <span class="btn-icon"><i data-feather="file-text"></i></span>
+                            PDF İndir
+                        </button>
+                        <button class="btn btn-accent" id="jsDownloadBtnDocx" onclick="downloadCV('docx')">
+                            <span class="btn-icon"><i data-feather="file"></i></span>
+                            Word (DOCX)
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Match Score -->
+                    <div class="cv-match-header" id="jsCvMatchHeader">
+                        <!-- Filled by JS -->
+                    </div>
+
+                    <!-- CV Content Preview -->
+                    <div class="cv-preview-content" id="jsCvPreviewContent">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="wizard-nav">
+                <button class="btn btn-ghost" onclick="goToStep(2)">← Geri</button>
+            </div>
+        </div>
+
+    </div>
+    <div class="split-col-right">
+
+        <div class="glass-card" style="margin-bottom: 32px;">
+            <div class="card-body" style="padding-top: 16px;">
+                <!-- Existing Profiles -->
+                {% if profiles %}
+                <div class="existing-profiles-section">
+                    <h4 class="section-subtitle-heading"><i data-feather="clipboard"></i> Mevcut Profilleriniz</h4>
+                    <p class="section-hint">Daha önce oluşturduğunuz bir profili seçebilir veya yeni bir CV
+                        yükleyebilirsiniz.</p>
+                    <div class="profile-cards-grid">
+                        {% for profile in profiles %}
+                        <div class="profile-select-card" data-profile-id="{{ profile['id'] }}"
+                            onclick="selectExistingProfile('{{ profile.id }}', '{{ profile.original_filename }}')">
+                            <div class="profile-select-icon"><i data-feather="user"></i></div>
+                            <div class="profile-select-info">
+                                <strong>{{ profile['original_filename'] }}</strong>
+                                <span class="profile-select-date">{{ profile['created_at']|format_date }}</span>
+                                {% set skills = profile['extracted_skills']|parse_json %}
+                                <span class="profile-select-skills">{{ skills|length }} yetenek</span>
+                            </div>
+                            <div class="profile-card-actions">
+                                <button class="btn-icon-only btn-danger-ghost"
+                                    onclick="deleteProfile(event, '{{ profile.id }}')" title="Profili Sil">
+                                    <i data-feather="trash-2" style="width:14px; height:14px;"></i>
+                                </button>
+                            </div>
+                            <span class="profile-select-check">✓</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="divider-with-text">
+                        <span></span>
+                    </div>
+                </div>
+                {% endif %}
+
+
+            </div>
+        </div>
+        <!-- ═════════════════════════════════════════ -->
+        <!-- Recent Sessions -->
+        <!-- ═════════════════════════════════════════ -->
+        {% if sessions %}
+        <div class="glass-card" style="margin-top:32px;">
+            <div class="card-header">
+                <h3><i data-feather="clipboard"></i> Son İş Arama Oturumları</h3>
+            </div>
+            <div class="card-body">
+                {% for session in sessions %}
+                <div class="list-item">
+                    <div class="list-item-left">
+                        <span class="list-item-icon"><i data-feather="file-text"></i></span>
+                        <div>
+                            <span class="list-item-title">
+                                {% set job = session['job_data']|parse_json %}
+                                {{ job.get('title', 'İş İlanı') if job else 'İş İlanı' }}
+                            </span>
+                            <span class="list-item-subtitle">{{ session['original_filename'] }}</span>
+                        </div>
+                    </div>
+                    <div class="session-actions">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            {% if session['status'] == 'completed' %}
+                            <div class="btn-group-sm" style="display:flex; gap:4px;">
+                                <a href="/api/job-search/download-cv/{{ session['id'] }}?format=pdf"
+                                    class="btn btn-sm btn-ghost" title="PDF İndir">
+                                    <i data-feather="file-text" style="width:14px; height:14px;"></i> PDF
+                                </a>
+                                <a href="/api/job-search/download-cv/{{ session['id'] }}?format=docx"
+                                    class="btn btn-sm btn-ghost" title="Word İndir">
+                                    <i data-feather="file" style="width:14px; height:14px;"></i> DOCX
+                                </a>
+                            </div>
+                            {% endif %}
+                            <button class="btn-icon-only btn-danger-ghost" onclick="deleteSession('{{ session.id }}')"
+                                title="Oturumu sil" style="padding: 4px;">
+                                <i data-feather="trash-2" style="width:16px; height:16px;"></i>
+                            </button>
+                        </div>
+                        <span class="list-item-date">{{ session['created_at']|format_date }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ═══════════════════════════════════════
+    // İş Arama Wizard — State Management
+    // ═══════════════════════════════════════
+
+    const state = {
+        currentStep: 1,
+        profileId: null,
+        profileData: null,
+        profileFilename: null,
+        jobData: null,
+        sessionId: null,
+        cvData: null,
+    };
+
+    // ── Step Navigation ──
+    function goToStep(step) {
+        // Validation
+        if (step === 2 && !state.profileId) {
+            showToast('Önce CV yükleyin veya mevcut bir profil seçin.', 'error');
+            return;
+        }
+        if (step === 3 && !state.jobData) {
+            showToast('Önce iş ilanı bilgilerini girin.', 'error');
+            return;
+        }
+
+        state.currentStep = step;
+
+        // Update panels
+        document.querySelectorAll('.wizard-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById(`panel${step}`).classList.add('active');
+
+        // Update steps indicator
+        document.querySelectorAll('.wizard-step').forEach(s => {
+            const sStep = parseInt(s.dataset.step);
+            s.classList.remove('active', 'completed');
+            if (sStep === step) s.classList.add('active');
+            else if (sStep < step) s.classList.add('completed');
+        });
+
+        // Update summaries on step 3
+        if (step === 3) {
+            document.getElementById('jsSummaryProfile').textContent = state.profileFilename || 'Profil';
+            document.getElementById('jsSummaryJob').textContent = state.jobData?.title || 'İş İlanı';
+        }
+
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ── Toast Notification ──
+    function showToast(message, type = 'info') {
+        const container = document.querySelector('.flash-container') || (() => {
+            const c = document.createElement('div');
+            c.className = 'flash-container';
+            document.querySelector('.content-area').prepend(c);
+            return c;
+        })();
+
+        const icons = { success: '<i data-feather="check-circle"></i>', error: '<i data-feather="x-circle"></i>', info: '<i data-feather="info"></i>' };
+        const toast = document.createElement('div');
+        toast.className = `flash-message flash-${type}`;
+        toast.innerHTML = `
+        <div class="flash-content">
+            <span class="flash-icon">${icons[type] || '<i data-feather="info"></i>'}</span>
+            <span>${message}</span>
+        </div>
+        <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
+    `;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-10px)';
+            setTimeout(() => toast.remove(), 300);
+        }, 5000);
+    }
+
+    // ═══════════════════════════════════════
+    // STEP 1: CV Upload
+    // ═══════════════════════════════════════
+
+    // Drop Zone
+    const dropZone = document.getElementById('jsDropZone');
+    const fileInput = document.getElementById('jsFileInput');
+
+    if (dropZone && fileInput) {
+        ['dragenter', 'dragover'].forEach(e => {
+            dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('drag-over'); });
+        });
+        ['dragleave', 'drop'].forEach(e => {
+            dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.remove('drag-over'); });
+        });
+        dropZone.addEventListener('drop', e => {
+            fileInput.files = e.dataTransfer.files;
+            showSelectedFile();
+        });
+        fileInput.addEventListener('change', showSelectedFile);
+    }
+
+    function showSelectedFile() {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const sizeStr = file.size > 1024 * 1024
+            ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+            : `${(file.size / 1024).toFixed(1)} KB`;
+
+        document.getElementById('jsFileName').textContent = file.name;
+        document.getElementById('jsFileSize').textContent = sizeStr;
+        document.getElementById('jsFileSelected').style.display = 'flex';
+        dropZone.style.display = 'none';
+    }
+
+    function selectExistingProfile(profileId, filename) {
+        // Visual selection
+        document.querySelectorAll('.profile-select-card').forEach(c => c.classList.remove('selected'));
+        document.querySelector(`[data-profile-id="${profileId}"]`).classList.add('selected');
+
+        state.profileId = profileId;
+        state.profileFilename = filename;
+
+        // Show success and enable next step
+        showToast(`"${filename}" profili seçildi!`, 'success');
+
+        // Show a mini "proceed" button
+        const preview = document.getElementById('jsProfilePreview');
+        preview.style.display = 'block';
+        document.getElementById('jsProfileGrid').innerHTML = `
+        <div class="profile-loaded-msg">
+            <span class="profile-loaded-icon"><i data-feather="check-circle"></i></span>
+            <p>Mevcut profiliniz seçildi: <strong>${filename}</strong></p>
+        </div>
+    `;
+    }
+
+    async function uploadCV() {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // Show progress
+        document.getElementById('jsFileSelected').style.display = 'none';
+        const progress = document.getElementById('jsUploadProgress');
+        progress.style.display = 'block';
+
+        const fill = document.getElementById('jsProgressFill');
+        const text = document.getElementById('jsProgressText');
+
+        // Animate progress
+        fill.style.width = '20%';
+        text.textContent = 'CV yükleniyor...';
+
+        try {
+            const response = await fetch('/api/job-search/upload-cv', {
+                method: 'POST',
+                body: formData
+            });
+
+            fill.style.width = '60%';
+            text.textContent = 'AI ile profil oluşturuluyor...';
+
+            const result = await response.json();
+
+            if (result.success) {
+                fill.style.width = '100%';
+                text.textContent = 'Profil başarıyla oluşturuldu!';
+
+                state.profileId = result.profile_id;
+                state.profileData = result.profile;
+                state.profileFilename = result.filename;
+
+                // Show profile preview
+                setTimeout(() => {
+                    progress.style.display = 'none';
+                    renderProfilePreview(result.profile, result.skills, result.warnings);
+                }, 500);
+            } else {
+                fill.style.width = '0%';
+                progress.style.display = 'none';
+                dropZone.style.display = 'block';
+                document.getElementById('jsFileSelected').style.display = 'none';
+                showToast(result.error || 'CV yüklenirken hata oluştu.', 'error');
+            }
+        } catch (err) {
+            progress.style.display = 'none';
+            dropZone.style.display = 'block';
+            showToast('Bağlantı hatası: ' + err.message, 'error');
+        }
+    }
+
+    function renderProfilePreview(profile, skills, warnings = []) {
+        const preview = document.getElementById('jsProfilePreview');
+        preview.style.display = 'block';
+
+        const grid = document.getElementById('jsProfileGrid');
+
+        let html = '';
+
+        // Format Warnings
+        if (warnings && warnings.length > 0) {
+            html += `<div class="profile-warning-box">
+                <div class="warning-box-header">
+                    <i data-feather="alert-triangle"></i> Format Uyarıları
+                </div>
+                <ul class="warning-list">
+                    ${warnings.map(w => `<li>${w}</li>`).join('')}
+                </ul>
+                <p class="warning-advice">Not: Bu uyarılar eşleşme puanınızı (Parseability) düşürebilir. Word (.docx) formatı en güvenilir sonuçları verir.</p>
+            </div>`;
+        }
+
+        // Name & Contact
+        html += `<div class="profile-section">
+        <h4 class="profile-section-title"><i data-feather="user"></i> Kişisel Bilgiler</h4>
+        <div class="profile-detail-row">
+            <span class="profile-detail-label">Ad Soyad</span>
+            <span class="profile-detail-value">${profile.full_name || '—'}</span>
+        </div>`;
+        // Dil Tespiti
+        const isEnglish = (profile.summary + profile.experience.map(e => e.title).join(' ')).toLowerCase().includes('experience') ||
+            (profile.summary + profile.experience.map(e => e.title).join(' ')).toLowerCase().includes('summary');
+
+        const previewHeaders = isEnglish ? {
+            contact: 'Contact Info',
+            summary: 'Summary',
+            experience: 'Experience',
+            education: 'Education',
+            skills: 'Detected Skills'
+        } : {
+            contact: 'İletişim Bilgileri',
+            summary: 'Özet',
+            experience: 'Deneyim',
+            education: 'Eğitim',
+            skills: 'Tespit Edilen Yetenekler'
+        };
+
+        if (profile.email) html += `<div class="profile-detail-row">
+            <span class="profile-detail-label">Email</span>
+            <span class="profile-detail-value">${profile.email}</span>
+        </div>`;
+        if (profile.phone) html += `<div class="profile-detail-row">
+            <span class="profile-detail-label">Telefon</span>
+            <span class="profile-detail-value">${profile.phone}</span>
+        </div>`;
+        if (profile.location) html += `<div class="profile-detail-row">
+            <span class="profile-detail-label">Konum</span>
+            <span class="profile-detail-value">${profile.location}</span>
+        </div>`;
+        html += `</div>`;
+
+        // Summary
+        if (profile.summary) {
+            html += `<div class="profile-section">
+            <h4 class="profile-section-title"><i data-feather="file-text"></i> ${previewHeaders.summary}</h4>
+            <p class="profile-summary-text">${profile.summary}</p>
+        </div>`;
+        }
+
+        // Experience
+        if (profile.experience && profile.experience.length > 0) {
+            html += `<div class="profile-section">
+            <h4 class="profile-section-title"><i data-feather="briefcase"></i> ${previewHeaders.experience}</h4>`;
+            for (const exp of profile.experience) {
+                html += `<div class="profile-exp-item">
+                <strong>${exp.title || ''}</strong> — ${exp.company || ''}
+                <span class="profile-exp-date">${exp.start_date || ''} – ${exp.end_date || ''}</span>
+            </div>`;
+            }
+            html += `</div>`;
+        }
+
+        // Education
+        if (profile.education && profile.education.length > 0) {
+            html += `<div class="profile-section">
+            <h4 class="profile-section-title"><i data-feather="book-open"></i> ${previewHeaders.education}</h4>`;
+            for (const edu of profile.education) {
+                html += `<div class="profile-exp-item">
+                <strong>${edu.degree || ''}</strong> — ${edu.institution || ''}
+                <span class="profile-exp-date">${edu.start_year || ''} – ${edu.end_year || ''}</span>
+            </div>`;
+            }
+            html += `</div>`;
+        }
+
+        // Skills (from NLP Engine)
+        if (skills && skills.length > 0) {
+            html += `<div class="profile-section">
+            <h4 class="profile-section-title"><i data-feather="zap"></i> ${previewHeaders.skills}</h4>
+            <div class="skill-tags">`;
+            for (const skill of skills.slice(0, 20)) {
+                html += `<span class="skill-tag">${skill}</span>`;
+            }
+            if (skills.length > 20) {
+                html += `<span class="skill-tag skill-tag-more">+${skills.length - 20} daha</span>`;
+            }
+            html += `</div></div>`;
+        }
+
+        grid.innerHTML = html;
+
+        // Scroll to preview
+        preview.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ═══════════════════════════════════════
+    // STEP 2: Job Parsing
+    // ═══════════════════════════════════════
+
+    function switchJobMethod(method) {
+        document.querySelectorAll('.method-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.method-panel').forEach(p => p.classList.remove('active'));
+
+        document.getElementById(`tab${method.charAt(0).toUpperCase() + method.slice(1)}`).classList.add('active');
+        document.getElementById(`method${method.charAt(0).toUpperCase() + method.slice(1)}`).classList.add('active');
+    }
+
+    async function parseJobUrl() {
+        const url = document.getElementById('linkedinUrl').value.trim();
+        if (!url) {
+            showToast('LinkedIn URL giriniz.', 'error');
+            return;
+        }
+
+        showJobProgress('LinkedIn ilanı parse ediliyor...');
+
+        try {
+            const response = await fetch('/api/job-search/parse-job', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+
+            const result = await response.json();
+            hideJobProgress();
+
+            if (result.success) {
+                state.jobData = result;
+                renderJobPreview(result);
+                showToast('İlan bilgileri başarıyla parse edildi!', 'success');
+            } else {
+                showToast(result.error || 'İlan parse edilemedi.', 'error');
+                // Suggest manual entry
+                switchJobMethod('manual');
+            }
+        } catch (err) {
+            hideJobProgress();
+            showToast('Bağlantı hatası: ' + err.message, 'error');
+        }
+    }
+
+    async function parseJobManual() {
+        const title = document.getElementById('manualTitle').value.trim();
+        const company = document.getElementById('manualCompany').value.trim();
+        const text = document.getElementById('manualText').value.trim();
+
+        if (!text) {
+            showToast('İlan açıklaması giriniz.', 'error');
+            return;
+        }
+
+        showJobProgress('İlan analiz ediliyor...');
+
+        try {
+            const response = await fetch('/api/job-search/parse-job', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    manual_text: text,
+                    manual_title: title,
+                    manual_company: company
+                })
+            });
+
+            const result = await response.json();
+            hideJobProgress();
+
+            if (result.success) {
+                state.jobData = result;
+                renderJobPreview(result);
+                showToast('İlan bilgileri başarıyla analiz edildi!', 'success');
+            } else {
+                showToast(result.error || 'İlan analiz edilemedi.', 'error');
+            }
+        } catch (err) {
+            hideJobProgress();
+            showToast('Bağlantı hatası: ' + err.message, 'error');
+        }
+    }
+
+    function showJobProgress(text) {
+        const progress = document.getElementById('jsJobProgress');
+        progress.style.display = 'block';
+        document.getElementById('jsJobProgressText').textContent = text;
+        document.getElementById('jsJobProgressFill').style.width = '60%';
+    }
+
+    function hideJobProgress() {
+        document.getElementById('jsJobProgress').style.display = 'none';
+    }
+
+    function renderJobPreview(job) {
+        const preview = document.getElementById('jsJobPreview');
+        preview.style.display = 'block';
+
+        let html = `
+        <div class="job-preview-header">
+            <h4 class="job-preview-title">${job.title || 'İş İlanı'}</h4>
+            ${job.company ? `<span class="job-preview-company"><i data-feather="home"></i> ${job.company}</span>` : ''}
+            ${job.location ? `<span class="job-preview-location"><i data-feather="map-pin"></i> ${job.location}</span>` : ''}
+            ${job.employment_type ? `<span class="job-preview-type"><i data-feather="clipboard"></i> ${job.employment_type}</span>` : ''}
+        </div>
+        <div class="job-preview-description">
+            <h5>İlan Açıklaması</h5>
+            <div class="job-preview-desc-text">${(job.description || '').substring(0, 500)}${(job.description || '').length > 500 ? '...' : ''}</div>
+        </div>`;
+
+        if (job.extracted_skills && job.extracted_skills.length > 0) {
+            html += `<div class="job-preview-skills">
+            <h5>Tespit Edilen Gereksinimler</h5>
+            <div class="skill-tags">`;
+            for (const skill of job.extracted_skills) {
+                html += `<span class="skill-tag skill-tag-required">${skill}</span>`;
+            }
+            html += `</div></div>`;
+        }
+
+        document.getElementById('jsJobPreviewContent').innerHTML = html;
+        preview.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ═══════════════════════════════════════
+    // STEP 3: Generate CV
+    // ═══════════════════════════════════════
+
+    async function generateCV() {
+        if (!state.profileId || !state.jobData) {
+            showToast('Profil ve ilan bilgileri eksik.', 'error');
+            return;
+        }
+
+        // Show progress
+        document.getElementById('jsGenerateBtn').style.display = 'none';
+        document.getElementById('jsGenProgress').style.display = 'flex';
+
+        try {
+            const response = await fetch('/api/job-search/generate-cv', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    profile_id: state.profileId,
+                    job_data: state.jobData
+                })
+            });
+
+            const result = await response.json();
+            document.getElementById('jsGenProgress').style.display = 'none';
+
+            if (result.success) {
+                state.sessionId = result.session_id;
+                state.cvData = result.cv_data;
+                renderGeneratedCV(result.cv_data);
+                showToast('CV başarıyla oluşturuldu! <i data-feather="award"></i>', 'success');
+            } else {
+                document.getElementById('jsGenerateBtn').style.display = 'inline-flex';
+                showToast(result.error || 'CV oluşturulamadı.', 'error');
+            }
+        } catch (err) {
+            document.getElementById('jsGenProgress').style.display = 'none';
+            document.getElementById('jsGenerateBtn').style.display = 'inline-flex';
+            showToast('Bağlantı hatası: ' + err.message, 'error');
+        }
+    }
+
+    function renderGeneratedCV(cv) {
+        const container = document.getElementById('jsGeneratedCV');
+        container.style.display = 'block';
+
+        // Match Score Header
+        const matchScoreVal = cv.match_score_estimate;
+        const matchScore = (matchScoreVal === null || matchScoreVal === undefined) ? '—' : (matchScoreVal % 1 === 0 ? matchScoreVal : Number(matchScoreVal).toFixed(2));
+        const isEn = cv.cv_language === 'en';
+        const uiText = isEn ? {
+            score: 'Estimated Match Score',
+            highlights: 'Match Highlights',
+            keywords: 'ATS Keywords',
+            tech: 'Technologies'
+        } : {
+            score: 'Tahmini Uyum Skoru',
+            highlights: 'Öne Çıkanlar',
+            keywords: 'ATS Anahtar Kelimeler',
+            tech: 'Teknolojiler'
+        };
+
+        const matchHeaderHtml = `
+        <div class="cv-match-score-display">
+            <div class="cv-match-circle">
+                <span class="cv-match-number ${String(matchScore).length > 3 ? 'cv-match-number--small' : ''}">${matchScore}</span>
+                <span class="cv-match-percent">%</span>
+            </div>
+            <div class="cv-match-info">
+                <h4>${uiText.score}</h4>
+                <p>${cv.optimization_notes || (isEn ? 'CV optimized with job description.' : 'CV ilanla optimize edildi.')}</p>
+            </div>
+        </div>
+        ${cv.match_highlights ? `
+        <div class="cv-match-highlights">
+            ${cv.match_highlights.map(h => `<span class="highlight-badge">✓ ${h}</span>`).join('')}
+        </div>` : ''}
+    `;
+        document.getElementById('jsCvMatchHeader').innerHTML = matchHeaderHtml;
+
+        // CV Content
+        let html = '';
+
+        // Name & Professional Summary
+        html += `<div class="cv-section">
+        <h2 class="cv-name">${cv.full_name || ''}</h2>`;
+        const contact = cv.contact || {};
+        const contactParts = [contact.email, contact.phone, contact.location, contact.linkedin].filter(Boolean);
+        if (contactParts.length) {
+            html += `<p class="cv-contact">${contactParts.join(' • ')}</p>`;
+        }
+        html += `</div>`;
+
+        const headers = cv.headers || {
+            summary: 'Professional Summary',
+            experience: 'Experience',
+            education: 'Education',
+            skills: 'Skills',
+            languages: 'Languages',
+            certifications: 'Certifications',
+            projects: 'Projects'
+        };
+
+        if (cv.professional_summary) {
+            html += `<div class="cv-section">
+            <h3 class="cv-section-heading">${headers.summary}</h3>
+            <p class="cv-body-text">${cv.professional_summary}</p>
+        </div>`;
+        }
+
+        // Experience
+        if (cv.experience && cv.experience.length) {
+            html += `<div class="cv-section">
+            <h3 class="cv-section-heading">${headers.experience}</h3>`;
+            for (const exp of cv.experience) {
+                html += `<div class="cv-entry">
+                <div class="cv-entry-header">
+                    <strong>${exp.title || ''}</strong>
+                    <span class="cv-entry-period">${exp.period || ''}</span>
+                </div>
+                <div class="cv-entry-sub">${exp.company || ''}${exp.location ? ' — ' + exp.location : ''}</div>
+                <ul class="cv-achievements">`;
+                for (const ach of (exp.achievements || [])) {
+                    html += `<li>${ach}</li>`;
+                }
+                html += `</ul></div>`;
+            }
+            html += `</div>`;
+        }
+
+        // Education
+        if (cv.education && cv.education.length) {
+            html += `<div class="cv-section">
+            <h3 class="cv-section-heading">${headers.education}</h3>`;
+            for (const edu of cv.education) {
+                html += `<div class="cv-entry">
+                <div class="cv-entry-header">
+                    <strong>${edu.degree || ''}</strong>
+                    <span class="cv-entry-period">${edu.period || ''}</span>
+                </div>
+                <div class="cv-entry-sub">${edu.institution || ''}</div>
+                ${edu.details ? `<p class="cv-entry-details">${edu.details}</p>` : ''}
+            </div>`;
+            }
+            html += `</div>`;
+        }
+
+        // Skills
+        const skills = cv.skills || {};
+        if (skills.groups && skills.groups.length) {
+            html += `<div class="cv-section">
+            <h3 class="cv-section-heading">${headers.skills}</h3>
+            <div class="cv-skills-grid">`;
+            for (const group of skills.groups) {
+                html += `<div class="cv-skill-group">
+                    <div class="skill-tags">${group.map(s => `<span class="skill-tag skill-tag-match">${s}</span>`).join('')}</div>
+                </div>`;
+            }
+            html += `</div></div>`;
+        } else if (skills.primary || skills.secondary || skills.tools) {
+            html += `<div class="cv-section">
+            <h3 class="cv-section-heading">${headers.skills}</h3>
+            <div class="cv-skills-grid">`;
+            if (skills.primary && skills.primary.length) {
+                html += `<div class="cv-skill-group">
+                <span class="cv-skill-group-label">Temel</span>
+                <div class="skill-tags">${skills.primary.map(s => `<span class="skill-tag skill-tag-match">${s}</span>`).join('')}</div>
+            </div>`;
+            }
+            if (skills.secondary && skills.secondary.length) {
+                html += `<div class="cv-skill-group">
+                <span class="cv-skill-group-label">Ek</span>
+                <div class="skill-tags">${skills.secondary.map(s => `<span class="skill-tag">${s}</span>`).join('')}</div>
+            </div>`;
+            }
+            if (skills.tools && skills.tools.length) {
+                html += `<div class="cv-skill-group">
+                <span class="cv-skill-group-label">Araçlar</span>
+                <div class="skill-tags">${skills.tools.map(s => `<span class="skill-tag skill-tag-required">${s}</span>`).join('')}</div>
+            </div>`;
+            }
+            html += `</div></div>`;
+        }
+
+        // Languages
+        if (cv.languages && cv.languages.length) {
+            html += `<div class="cv-section">
+            <h3 class="cv-section-heading">${headers.languages}</h3>
+            <p class="cv-body-text">${cv.languages.map(l => `${l.language} (${l.level})`).join(', ')}</p>
+        </div>`;
+        }
+
+        // Certifications
+        if (cv.certifications && cv.certifications.length) {
+            html += `<div class="cv-section">
+            <h3 class="cv-section-heading">${headers.certifications}</h3>
+            <ul class="cv-achievements">`;
+            for (const cert of cv.certifications) {
+                html += `<li>${cert.name}${cert.issuer ? ' — ' + cert.issuer : ''}${cert.year ? ' (' + cert.year + ')' : ''}</li>`;
+            }
+            html += `</ul></div>`;
+        }
+
+        // Projects
+        if (cv.projects && cv.projects.length) {
+            html += `<div class="cv-section">
+            <h3 class="cv-section-heading">${headers.projects}</h3>`;
+            for (const proj of cv.projects) {
+                html += `<div class="cv-entry">
+                <strong>${proj.name || ''}</strong>
+                ${proj.description ? `<p class="cv-entry-details">${proj.description}</p>` : ''}
+                ${proj.technologies ? `<p class="cv-entry-tech">${uiText.tech}: ${proj.technologies.join(', ')}</p>` : ''}
+            </div>`;
+            }
+            html += `</div>`;
+        }
+
+        // ATS Keywords
+        if (cv.ats_keywords && cv.ats_keywords.length) {
+            html += `<div class="cv-section cv-ats-section">
+            <h3 class="cv-section-heading">🔑 ${uiText.keywords}</h3>
+            <div class="skill-tags">${cv.ats_keywords.map(k => `<span class="skill-tag skill-tag-semantic">${k}</span>`).join('')}</div>
+        </div>`;
+        }
+
+        document.getElementById('jsCvPreviewContent').innerHTML = html;
+
+        // Scroll to result
+        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function downloadCV(format = 'pdf') {
+        if (!state.sessionId) {
+            showToast('İndirilebilir CV bulunamadı.', 'error');
+            return;
+        }
+        window.open(`/api/job-search/download-cv/${state.sessionId}?format=${format}`, '_blank');
+    }
+
+    async function deleteSession(sessionId) {
+        if (!confirm("Oturumu silmek istediğinize emin misiniz?")) return;
+        try {
+            const response = await fetch(`/api/job-search/delete-session/${sessionId}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+            if (result.success) {
+                showToast("Oturum silindi.", "success");
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                showToast(result.error || "Hata", "error");
+            }
+        } catch (err) {
+            showToast("Bağlantı hatası", "error");
+        }
+    }
+
+    async function deleteProfile(event, profileId) {
+        if (event) event.stopPropagation();
+        if (!confirm('Bu profili ve bu profile bağlı tüm geçmiş CV oturumlarını silmek istediğinize emin misiniz?')) return;
+
+        try {
+            const response = await fetch(`/api/job-search/delete-profile/${profileId}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+            if (result.success) {
+                showToast('Profil başarıyla silindi.', 'success');
+                setTimeout(() => window.location.reload(), 500);
+            } else {
+                showToast(result.error || 'Silme başarısız.', 'error');
+            }
+        } catch (err) {
+            showToast('Bağlantı hatası.', 'error');
+        }
+    }
+
+    // Initialize Feather Icons
+    if (window.feather) {
+        feather.replace();
+    }
+
+</script>
+{% endblock %}
