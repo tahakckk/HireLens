@@ -174,7 +174,7 @@ python -m spacy download en_core_web_sm
      Server running at: http://localhost:5000
    ==================================================
    ```
-4. Open your browser (Google Chrome, Edge, Safari, Firefox) and go to:
+5. Open your browser (Google Chrome, Edge, Safari, Firefox) and go to:
    [http://localhost:5000](http://localhost:5000)
 
 ---

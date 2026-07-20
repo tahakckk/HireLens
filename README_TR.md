@@ -173,7 +173,7 @@ python -m spacy download en_core_web_sm
      Server running at: http://localhost:5000
    ==================================================
    ```
-4. Tarayıcınızı açın (Chrome, Edge vb.) ve şu adrese gidin:
+5. Tarayıcınızı açın (Chrome, Edge vb.) ve şu adrese gidin:
    [http://localhost:5000](http://localhost:5000)
 
 ---

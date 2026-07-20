@@ -14,10 +14,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from file_validation import validate_cv_file
 
 
-def load_app(monkeypatch, tmp_path):
-    """Import the Flask app without loading the heavyweight NLP models."""
-    monkeypatch.setenv('SECRET_KEY', 'test-secret-key-that-is-longer-than-32-characters')
-
+def mock_app_dependencies(monkeypatch):
+    """Install light fakes so startup validation runs before heavyweight models."""
     nlp_module = types.ModuleType('nlp_engine')
 
     class FakeNLPEngine:
@@ -43,6 +41,13 @@ def load_app(monkeypatch, tmp_path):
     cv_module.ExtractiveCVGenerator = FakeGenerator
     monkeypatch.setitem(sys.modules, 'extractive_cv', cv_module)
 
+
+def load_app(monkeypatch, tmp_path):
+    """Import the Flask app without loading the heavyweight NLP models."""
+    monkeypatch.setenv('SECRET_KEY', 'test-secret-key-that-is-longer-than-32-characters')
+
+    mock_app_dependencies(monkeypatch)
+
     sys.modules.pop('config', None)
     sys.modules.pop('app', None)
     application = importlib.import_module('app')
@@ -56,26 +61,25 @@ def load_app(monkeypatch, tmp_path):
     return application
 
 
-def test_application_startup_requires_secret_key(monkeypatch, tmp_path):
-    monkeypatch.delenv('SECRET_KEY', raising=False)
+def test_application_startup_rejects_blank_example_secret(monkeypatch):
+    example_secret = next(
+        line.split('=', 1)[1]
+        for line in (PROJECT_ROOT / '.env.example').read_text().splitlines()
+        if line.startswith('SECRET_KEY=')
+    )
+    monkeypatch.setenv('SECRET_KEY', example_secret)
     sys.modules.pop('config', None)
     sys.modules.pop('app', None)
-
-    nlp_module = types.ModuleType('nlp_engine')
-    nlp_module.NLPEngine = object
-    nlp_module.clean_text = lambda text: text
-    monkeypatch.setitem(sys.modules, 'nlp_engine', nlp_module)
-    scraper_module = types.ModuleType('job_scraper')
-    scraper_module.scrape_linkedin_job = lambda _url: None
-    scraper_module.parse_job_text = lambda *_args: None
-    scraper_module.validate_linkedin_url = lambda _url: False
-    monkeypatch.setitem(sys.modules, 'job_scraper', scraper_module)
-    cv_module = types.ModuleType('extractive_cv')
-    cv_module.ExtractiveCVGenerator = object
-    monkeypatch.setitem(sys.modules, 'extractive_cv', cv_module)
+    mock_app_dependencies(monkeypatch)
 
     with pytest.raises(RuntimeError, match='SECRET_KEY'):
         importlib.import_module('app')
+
+
+def test_application_startup_accepts_real_secret(monkeypatch, tmp_path):
+    application = load_app(monkeypatch, tmp_path)
+
+    assert application.app.config['SECRET_KEY'] == 'test-secret-key-that-is-longer-than-32-characters'
 
 
 def test_allowed_file_accepts_only_pdf_and_docx(monkeypatch, tmp_path):
