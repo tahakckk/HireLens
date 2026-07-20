@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}İş Arama — AI Jobs Match{% endblock %}
+{% block title %}İş Arama — HireLens{% endblock %}
 {% block page_title %}İş Arama{% endblock %}
 
 {% block content %}
@@ -10,7 +10,7 @@
         <div class="wizard-step-number">1</div>
         <div class="wizard-step-info">
             <span class="wizard-step-title">CV Yükle</span>
-            <span class="wizard-step-desc">PDF formatında CV'nizi yükleyin</span>
+            <span class="wizard-step-desc">PDF veya DOCX formatında CV'nizi yükleyin</span>
         </div>
     </div>
     <div class="wizard-step-connector"></div>
@@ -48,7 +48,7 @@
                         <span class="info-banner-icon"><i data-feather="help-circle"></i></span>
                         <div>
                             <strong>Nasıl Çalışır?</strong>
-                            <p>CV'nizi PDF olarak yükleyin. Yapay zeka tüm bilgilerinizi otomatik olarak çıkaracak ve
+                            <p>CV'nizi PDF veya DOCX olarak yükleyin. Yapay zeka tüm bilgilerinizi otomatik olarak çıkaracak ve
                                 bir profil oluşturacak. Bu profil, iş ilanlarına özel CV oluşturmak için kullanılacak.
                             </p>
                         </div>
@@ -60,9 +60,9 @@
                             <div class="drop-icon"><i data-feather="upload"></i></div>
                             <h3>CV'nizi Sürükle & Bırak</h3>
                             <p>veya dosya seçmek için tıklayın</p>
-                            <span class="drop-hint">Sadece PDF • Maks 16MB</span>
+                            <span class="drop-hint">PDF veya DOCX • Maks 16MB</span>
                         </div>
-                        <input type="file" accept=".pdf" class="file-input" id="jsFileInput">
+                        <input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="file-input" id="jsFileInput">
                     </div>
 
                     <!-- File Selected Preview -->
@@ -477,6 +477,13 @@
     function showSelectedFile() {
         const file = fileInput.files[0];
         if (!file) return;
+
+        const extension = file.name.toLowerCase().split('.').pop();
+        if (extension !== 'pdf' && extension !== 'docx') {
+            fileInput.value = '';
+            showToast('Sadece PDF ve DOCX dosyaları desteklenmektedir.', 'error');
+            return;
+        }
 
         const sizeStr = file.size > 1024 * 1024
             ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`

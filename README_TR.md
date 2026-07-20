@@ -161,18 +161,19 @@ python -m spacy download en_core_web_sm
 ## Çalıştırma Yönergesi
 
 1. Sanal ortamınızın aktif olduğundan emin olun (satırın başında `(venv)` yazmalıdır).
-2. Uygulamayı başlatın:
+2. Sunucuyu başlatmadan önce uygulama ortamında en az 32 karakterlik, benzersiz ve rastgele bir `SECRET_KEY` tanımlayın. `.env.example` gerekli değişkeni belgeler; `python app.py`, `.env` dosyasını otomatik yüklemez. Gerçek bir secret'ı repoya eklemeyin.
+3. Uygulamayı başlatın:
    ```cmd
    python app.py
    ```
-3. Terminalde şu şekilde bir çıktı göreceksiniz:
+4. Terminalde şu şekilde bir çıktı göreceksiniz:
    ```
    ==================================================
      HireLens - Semantic Talent Matcher & ATS Engine
      Server running at: http://localhost:5000
    ==================================================
    ```
-4. Tarayıcınızı açın (Chrome, Edge vb.) ve şu adrese gidin:
+5. Tarayıcınızı açın (Chrome, Edge vb.) ve şu adrese gidin:
    [http://localhost:5000](http://localhost:5000)
 
 ---
@@ -194,11 +195,11 @@ Uygulama ilk kez çalıştığında SQLite veritabanı otomatik olarak oluşturu
 Akademik sunumlar, kod savunmaları ve jüri değerlendirmeleri için kod içerisindeki karmaşık ve gereksiz yorum satırları temizlenmiştir. Bunların yerine, sunum anında size rehberlik etmesi amacıyla **`# NOT:`** ön ekiyle başlayan **kısa Türkçe notlar** eklenmiştir.
 
 Bu notlar sunum esnasında kod düzeyinde şu konuları hızlıca açıklamanıza yardımcı olur:
-* [app.py](file:///c:/Users/yigit/Desktop/bittirme%20hoca%20dedin/app.py) dosyasında SQLite bağlantısı kurulurken eşzamanlılığı artıran **WAL (Write-Ahead Logging)** modunun açılması.
-* [file_parser.py](file:///c:/Users/yigit/Desktop/bittirme%20hoca%20dedin/file_parser.py) dosyasındaki **Dinamik Gutter ve Sütun Bölme Algoritması** koordinat hesaplamaları.
-* [nlp_engine.py](file:///c:/Users/yigit/Desktop/bittirme%20hoca%20dedin/nlp_engine.py) dosyasında SBERT modeli yüklenmesi ve **Kosinüs Benzerliği** normları.
-* [nlp_engine.py](file:///c:/Users/yigit/Desktop/bittirme%20hoca%20dedin/nlp_engine.py) dosyasındaki **Canva görsel düzeni 15p ceza puanı (visual tax)** kesintileri.
-* [extractive_cv.py](file:///c:/Users/yigit/Desktop/bittirme%20hoca%20dedin/extractive_cv.py) dosyasında adayın kendi cümlelerini ağırlıklandırırken kullanılan **%50 semantik benzerlik, %30 yetenek, %20 unvan uyumu katsayıları**.
+* `app.py` dosyasında SQLite bağlantısı kurulurken eşzamanlılığı artıran **WAL (Write-Ahead Logging)** modunun açılması.
+* `file_parser.py` dosyasındaki **Dinamik Gutter ve Sütun Bölme Algoritması** koordinat hesaplamaları.
+* `nlp_engine.py` dosyasında SBERT modeli yüklenmesi ve **Kosinüs Benzerliği** normları.
+* `nlp_engine.py` dosyasındaki **Canva görsel düzeni 15p ceza puanı (visual tax)** kesintileri.
+* `extractive_cv.py` dosyasında adayın kendi cümlelerini ağırlıklandırırken kullanılan **%50 semantik benzerlik, %30 yetenek, %20 unvan uyumu katsayıları**.
 
 ---
 
