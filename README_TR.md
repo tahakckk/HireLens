@@ -206,3 +206,27 @@ Bu notlar sunum esnasında kod düzeyinde şu konuları hızlıca açıklamanız
 ## Lisans
 
 Bu proje MIT Lisansı altında dağıtılmaktadır. Detaylar için `LICENSE` dosyasına göz atabilirsiniz.
+
+## Geliştirme, Test ve Production Dağıtımı
+
+Her süreç başlamadan önce en az 32 karakterlik, benzersiz bir `SECRET_KEY` tanımlayın. Yerel geliştirme giriş noktası güvenli varsayılanla (debug kapalı) çalışır:
+
+```bash
+export SECRET_KEY='en-az-32-karakterlik-benzersiz-bir-gizli-deger'
+python app.py
+```
+
+Testler NLP modellerini indirmek zorunda değildir; application factory testlerde enjekte edilen sahte servisleri kabul eder:
+
+```bash
+ruff check app.py database.py services.py tests/test_architecture.py
+pytest -q
+```
+
+Production ortamında Flask geliştirme sunucusu yerine WSGI giriş noktasını kullanın:
+
+```bash
+gunicorn wsgi:app
+```
+
+`create_app()` uygulama kurulumunu yapar, `main` blueprint'ini kaydeder, SQLite şemasını idempotent biçimde başlatır ve NLP servislerini yalnızca uygulama örneği oluşturulurken başlatır. Bağlantılar Flask application context kapsamında yönetilir; foreign key ve WAL ayarları etkindir. Var olan `database.db` verisi korunur, yükseltmeler yalnızca eksik sütunları ekler.

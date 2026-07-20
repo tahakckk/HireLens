@@ -26,9 +26,10 @@ class Config:
     SPACY_MODEL = 'en_core_web_sm'
 
     @classmethod
-    def validate(cls):
+    def validate(cls, secret_key=None):
         """Fail closed instead of starting production with an insecure session key."""
-        if not cls.SECRET_KEY or len(cls.SECRET_KEY) < 32:
+        secret_key = cls.SECRET_KEY if secret_key is None else secret_key
+        if not secret_key or len(secret_key) < 32:
             raise RuntimeError(
                 'SECRET_KEY ortam değişkeni en az 32 karakterlik güvenli bir değer olmalıdır.'
             )

@@ -207,3 +207,27 @@ These notes serve as personal presentation highlights, explaining:
 ## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
+
+## Development, Testing, and Deployment
+
+Set `SECRET_KEY` to a unique value of at least 32 characters before any process starts. Development uses the safe default (debug disabled unless explicitly changed in your own configuration):
+
+```bash
+export SECRET_KEY='replace-with-a-unique-secret-of-at-least-32-characters'
+python app.py
+```
+
+Run the automated checks without downloading NLP models; the factory accepts injected model services in tests:
+
+```bash
+ruff check app.py database.py services.py tests/test_architecture.py
+pytest -q
+```
+
+For production, serve the dedicated WSGI entry point rather than Flask's development server:
+
+```bash
+gunicorn wsgi:app
+```
+
+`create_app()` owns application setup, registers the `main` blueprint, initializes SQLite idempotently, and starts NLP services only when an application instance is created. SQLite connections are scoped to the Flask application context with foreign keys and WAL enabled. Existing `database.db` data is retained; schema upgrades add only missing columns.

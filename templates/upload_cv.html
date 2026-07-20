@@ -13,7 +13,7 @@
         <span class="badge">Çoklu dosya desteklenir</span>
     </div>
     <div class="card-body">
-        <form action="{{ url_for('upload_cv') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
+        <form action="{{ url_for('recruiter.upload_cv') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
             <div class="drop-zone" id="dropZone">
                 <div class="drop-zone-content">
                     <div class="drop-icon">📁</div>
@@ -101,7 +101,7 @@
                     </div>
                     <div class="cv-actions-top" style="display:flex; gap:8px;">
                         {% if cv['file_path'] %}
-                        <a href="{{ url_for('download_cv_file', cv_id=cv['id']) }}" class="btn-icon-only btn-ghost" title="CV İndir" aria-label="CV İndir"><i data-feather="download"></i></a>
+                        <a href="{{ url_for('recruiter.download_cv_file', cv_id=cv['id']) }}" class="btn-icon-only btn-ghost" title="CV İndir" aria-label="CV İndir"><i data-feather="download"></i></a>
                         {% endif %}
                         <button class="btn-icon-only btn-danger-ghost" onclick="deleteCV('{{ cv.id }}')"
                                 title="CV'yi sil" aria-label="CV'yi sil">🗑️</button>
