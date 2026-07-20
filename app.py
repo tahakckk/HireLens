@@ -6,10 +6,11 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, g, send_file, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, session
 from werkzeug.utils import secure_filename
 
 from config import Config
+from database import get_db, init_app, init_db
 from file_parser import parse_file
 from file_validation import validate_cv_file
 from nlp_engine import NLPEngine, clean_text
@@ -28,187 +29,7 @@ nlp_engine = NLPEngine(
 )
 
 extractive_cv_gen = ExtractiveCVGenerator(nlp_engine=nlp_engine)
-
-def get_db():
-    if 'db' not in g:
-        g.db = sqlite3.connect(app.config['DATABASE'])
-        g.db.row_factory = sqlite3.Row
-        # NOT: Veritabanı okuma-yazma hızını artırmak ve tıkanmaları önlemek için WAL modunu aktif ediyoruz.
-        g.db.execute("PRAGMA journal_mode=WAL")
-    return g.db
-
-@app.teardown_appcontext
-def close_db(exception):
-    db = g.pop('db', None)
-    if db is not None:
-        db.close()
-
-# NOT: SQLite veri tabanı tablolarını ilk kez ayağa kalkarken otomatik oluşturuyoruz.
-def init_db():
-    db = sqlite3.connect(app.config['DATABASE'])
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS cvs (
-            id TEXT PRIMARY KEY,
-            filename TEXT NOT NULL,
-            file_path TEXT NOT NULL DEFAULT '',
-            original_text TEXT,
-            cleaned_text TEXT,
-            extracted_skills TEXT,
-            timeline TEXT,
-            experience_months INTEGER DEFAULT 0,
-            skill_recency TEXT,
-            metadata TEXT,
-            embedding BLOB,
-            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS jobs (
-            id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            description TEXT NOT NULL,
-            cleaned_description TEXT,
-            required_skills TEXT,
-            must_have_skills TEXT,
-            nice_to_have_skills TEXT,
-            embedding BLOB,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS matches (
-            id TEXT PRIMARY KEY,
-            job_id TEXT NOT NULL,
-            cv_id TEXT NOT NULL,
-            match_score REAL,
-            matching_skills TEXT,
-            semantic_matches TEXT,
-            missing_skills TEXT,
-            extra_skills TEXT,
-            timeline_gaps TEXT,
-            experience_score REAL,
-            coverage_percent REAL,
-            matched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (job_id) REFERENCES jobs (id),
-            FOREIGN KEY (cv_id) REFERENCES cvs (id)
-        )
-    """)
-
-    cols_to_add = [
-        ("cvs", "file_path", "TEXT NOT NULL DEFAULT ''"),
-        ("cvs", "timeline", "TEXT"),
-        ("cvs", "experience_months", "INTEGER DEFAULT 0"),
-        ("cvs", "skill_recency", "TEXT"),
-        ("cvs", "metadata", "TEXT"),
-        ("matches", "timeline_gaps", "TEXT"),
-        ("matches", "experience_score", "REAL")
-    ]
-
-    for table, col, col_type in cols_to_add:
-        try:
-            db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
-        except sqlite3.OperationalError:
-            pass
-
-    db.commit()
-
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS user_profiles (
-            id TEXT PRIMARY KEY,
-            original_filename TEXT,
-            original_text TEXT,
-            profile_data TEXT,
-            extracted_skills TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS job_search_sessions (
-            id TEXT PRIMARY KEY,
-            profile_id TEXT NOT NULL,
-            job_url TEXT,
-            job_data TEXT,
-            optimized_cv TEXT,
-            status TEXT DEFAULT 'pending',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (profile_id) REFERENCES user_profiles(id)
-        )
-    """)
-
-    try:
-        db.execute("ALTER TABLE jobs ADD COLUMN must_have_skills TEXT")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE jobs ADD COLUMN nice_to_have_skills TEXT")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE matches ADD COLUMN semantic_matches TEXT")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE matches ADD COLUMN text_similarity REAL")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE matches ADD COLUMN penalty_applied REAL DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE matches ADD COLUMN missing_must_haves TEXT")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE cvs ADD COLUMN file_path TEXT")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE matches ADD COLUMN format_score REAL DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE matches ADD COLUMN keyword_score REAL DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE matches ADD COLUMN section_score REAL DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE matches ADD COLUMN language_match INTEGER DEFAULT 1")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE matches ADD COLUMN sections_found TEXT")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE matches ADD COLUMN cv_lang TEXT")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE matches ADD COLUMN job_lang TEXT")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE matches ADD COLUMN is_disqualified INTEGER DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE matches ADD COLUMN is_pretty_resume INTEGER DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE matches ADD COLUMN detail_metrics TEXT")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE matches ADD COLUMN title_match_bonus REAL DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
-    db.commit()
-    db.close()
+init_app(app)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
@@ -473,10 +294,6 @@ def run_match(job_id):
     if not cvs:
         flash('Henüz yüklenmiş CV bulunmuyor. Önce CV yükleyin.', 'error')
         return redirect(url_for('upload_cv'))
-
-    job_embedding = bytes_to_embedding(job['embedding'])
-    must_have_raw = job.get('must_have_skills') if hasattr(job, 'get') else job['must_have_skills']
-    must_have_skills = json.loads(must_have_raw) if must_have_raw else []
 
     db.execute("DELETE FROM matches WHERE job_id = ?", (job_id,))
 
@@ -959,8 +776,8 @@ def job_search_download_cv(session_id):
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.lib.colors import HexColor
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
 
@@ -1177,9 +994,10 @@ def format_date_filter(value):
 
 if __name__ == '__main__':
     # NOT: Veritabanı tablolarının kurulduğundan emin olup, yerel sunucuyu 5000 portunda başlatıyoruz.
-    init_db()
+    with app.app_context():
+        init_db()
     print("\n" + "=" * 50)
     print("  HireLens - Semantic Talent Matcher & ATS Engine")
     print("  Server running at: http://localhost:5000")
     print("=" * 50 + "\n")
-    app.run(debug=True, port=5000)
+    app.run(port=5000)

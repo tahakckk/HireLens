@@ -22,7 +22,6 @@ def extract_text_from_pdf(file_path: str):
         warnings = []
 
         is_multi_column = False
-        is_low_text = False
         total_chars = 0
 
         for page in doc:
@@ -110,7 +109,6 @@ def extract_text_from_pdf(file_path: str):
         doc.close()
 
         if num_pages > 0 and (total_chars / num_pages) < 100:
-            is_low_text = True
             warnings.append("Bu PDF resim tabanlı görünüyor (Metin katmanı yok). Lütfen .docx formatını deneyin.")
 
         if is_multi_column:

@@ -1,5 +1,6 @@
 import importlib
 from io import BytesIO
+import sqlite3
 import sys
 import types
 import zipfile
@@ -57,7 +58,8 @@ def load_app(monkeypatch, tmp_path):
         UPLOAD_FOLDER=str(tmp_path / 'uploads'),
     )
     application.os.makedirs(application.app.config['UPLOAD_FOLDER'], exist_ok=True)
-    application.init_db()
+    with application.app.app_context():
+        application.init_db()
     return application
 
 
@@ -193,7 +195,7 @@ def test_delete_cv_preserves_file_when_database_commit_fails(monkeypatch, tmp_pa
             return self.database.execute(*args)
 
         def commit(self):
-            raise application.sqlite3.OperationalError('forced commit failure')
+            raise sqlite3.OperationalError('forced commit failure')
 
         def rollback(self):
             self.database.rollback()
