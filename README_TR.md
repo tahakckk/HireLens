@@ -153,7 +153,7 @@ pip install -r requirements.txt
 ### Adım 5: spaCy Dil Modelini İndirme
 Aşağıdaki komutla kelime analizi yapacak spaCy modelini indirin:
 ```cmd
-python -m spacy download en_core_web_sm
+# Gerekli spaCy modeli requirements.txt tarafından otomatik kurulur.
 ```
 
 ---
