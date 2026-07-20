@@ -23,7 +23,7 @@
         </div>
 
         <!-- LinkedIn Form -->
-        <form action="{{ url_for('job_analysis') }}" method="POST" id="jobAnaUrlForm" class="method-panel active">
+        <form action="{{ url_for('recruiter.job_analysis') }}" method="POST" id="jobAnaUrlForm" class="method-panel active">
             <div class="form-group">
                 <label for="linkedin_url" class="form-label">LinkedIn İlan Linki</label>
                 <div class="url-input-group">
@@ -40,7 +40,7 @@
         </form>
 
         <!-- Manual Form -->
-        <form action="{{ url_for('job_analysis') }}" method="POST" id="jobAnaManualForm" class="method-panel">
+        <form action="{{ url_for('recruiter.job_analysis') }}" method="POST" id="jobAnaManualForm" class="method-panel">
             <div class="form-group">
                 <label for="title" class="form-label">İş İlanı Başlığı</label>
                 <input type="text" id="title" name="title" class="form-input"
@@ -88,7 +88,7 @@
                         <span class="job-date">{{ job['created_at']|format_date }}</span>
                     </div>
                     <div class="job-actions">
-                        <form action="{{ url_for('run_match', job_id=job['id']) }}" method="POST" style="display:inline;">
+                        <form action="{{ url_for('recruiter.run_match', job_id=job['id']) }}" method="POST" style="display:inline;">
                             <button type="submit" class="btn btn-accent btn-sm" id="match-{{ job['id'] }}">
                                 <span><i data-feather="link"></i></span> Eşleştir
                             </button>

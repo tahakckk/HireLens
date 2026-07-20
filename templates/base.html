@@ -26,29 +26,29 @@
 
         <ul class="nav-menu">
             <li class="nav-item">
-                <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}"
+                <a href="{{ url_for('recruiter.index') }}" class="nav-link {% if request.endpoint == 'recruiter.index' %}active{% endif %}"
                     id="nav-dashboard">
                     <span class="nav-icon"><i data-feather="bar-chart-2"></i></span>
                     <span>Dashboard</span>
                 </a>
             </li>
             <li class="nav-item">
-                <a href="{{ url_for('upload_cv') }}"
-                    class="nav-link {% if request.endpoint == 'upload_cv' %}active{% endif %}" id="nav-upload">
+                <a href="{{ url_for('recruiter.upload_cv') }}"
+                    class="nav-link {% if request.endpoint == 'recruiter.upload_cv' %}active{% endif %}" id="nav-upload">
                     <span class="nav-icon"><i data-feather="file-text"></i></span>
                     <span>CV Yükle</span>
                 </a>
             </li>
             <li class="nav-item">
-                <a href="{{ url_for('job_analysis') }}"
-                    class="nav-link {% if request.endpoint == 'job_analysis' %}active{% endif %}" id="nav-jobs">
+                <a href="{{ url_for('recruiter.job_analysis') }}"
+                    class="nav-link {% if request.endpoint == 'recruiter.job_analysis' %}active{% endif %}" id="nav-jobs">
                     <span class="nav-icon"><i data-feather="briefcase"></i></span>
                     <span>İş İlanları</span>
                 </a>
             </li>
             <li class="nav-item">
-                <a href="{{ url_for('job_search') }}"
-                    class="nav-link {% if request.endpoint == 'job_search' %}active{% endif %}" id="nav-job-search">
+                <a href="{{ url_for('job_search.job_search') }}"
+                    class="nav-link {% if request.endpoint == 'job_search.job_search' %}active{% endif %}" id="nav-job-search">
                     <span class="nav-icon"><i data-feather="target"></i></span>
                     <span>Özel CV Oluşturucu</span>
                 </a>

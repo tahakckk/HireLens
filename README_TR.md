@@ -206,3 +206,13 @@ Bu notlar sunum esnasında kod düzeyinde şu konuları hızlıca açıklamanız
 ## Lisans
 
 Bu proje MIT Lisansı altında dağıtılmaktadır. Detaylar için `LICENSE` dosyasına göz atabilirsiniz.
+
+## Geliştirme ve production çalıştırma
+
+Uygulamayı başlatmadan önce `SECRET_KEY` ortam değişkenini en az 32 karakterlik benzersiz bir değer olarak ayarlayın. Bu değer eksik veya kısa olduğunda uygulama güvenli şekilde başlamaz.
+
+Geliştirme için `python app.py` komutunu kullanın; giriş noktası `create_app()` kullanır ve debug modu kapalıdır. Production için runtime bağımlılıklarını kurduktan sonra aşağıdaki komutu çalıştırın:
+
+```bash
+gunicorn wsgi:app
+```
