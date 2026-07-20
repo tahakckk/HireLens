@@ -208,3 +208,41 @@ def test_delete_cv_reports_staged_file_cleanup_failure(monkeypatch, tmp_path):
     assert response.status_code == 200
     assert response.get_json()['cleanup_pending'] is True
     assert not uploaded_file.exists()
+
+
+def test_job_analysis_hides_internal_exception_details(monkeypatch, tmp_path):
+    application, flask_app = load_app(monkeypatch, tmp_path)
+
+    response = flask_app.test_client().post(
+        '/job-analysis',
+        data={'title': 'Engineer', 'description': 'A sufficiently detailed job description'},
+        follow_redirects=True,
+    )
+
+    body = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert 'İş ilanı analiz edilemedi. Lütfen tekrar deneyin.' in body
+    assert 'has no attribute' not in body
+
+
+def test_tailored_cv_endpoint_hides_internal_exception_details(monkeypatch, tmp_path):
+    application, flask_app = load_app(monkeypatch, tmp_path)
+    with flask_app.app_context():
+        db = __import__('database', fromlist=['get_db']).get_db()
+        db.execute(
+            """INSERT INTO user_profiles
+               (id, original_filename, original_text, profile_data, extracted_skills, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            ('profile-1', 'resume.pdf', 'resume', '{}', '[]', '2026-07-20T00:00:00'),
+        )
+        db.commit()
+
+    response = flask_app.test_client().post(
+        '/api/job-search/generate-cv',
+        json={'profile_id': 'profile-1', 'job_data': {'title': 'Engineer'}},
+    )
+
+    payload = response.get_json()
+    assert response.status_code == 500
+    assert payload['error'] == 'CV oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.'
+    assert 'has no attribute' not in payload['error']

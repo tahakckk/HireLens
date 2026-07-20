@@ -156,8 +156,12 @@ def job_search_generate_cv():
 
     try:
         optimized_cv_data = current_app.extensions["extractive_cv_generator"].generate_tailored_cv(profile_data, job_data)
-    except Exception as e:
-        return jsonify({'success': False, 'error': f'CV oluşturulurken hata: {str(e)}'}), 500
+    except Exception:
+        current_app.logger.exception('Tailored CV generation failed')
+        return jsonify({
+            'success': False,
+            'error': 'CV oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.'
+        }), 500
 
     session_id = str(uuid.uuid4())
     db.execute(

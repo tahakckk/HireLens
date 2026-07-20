@@ -215,8 +215,9 @@ def job_analysis():
             )
             return redirect(url_for('recruiter.job_analysis'))
 
-        except Exception as e:
-            flash(f'Hata: {str(e)}', 'error')
+        except Exception:
+            current_app.logger.exception('Job analysis failed')
+            flash('İş ilanı analiz edilemedi. Lütfen tekrar deneyin.', 'error')
             return redirect(request.url)
 
     db = get_db()
@@ -415,4 +416,3 @@ def format_date_filter(value):
         return dt.strftime('%d.%m.%Y %H:%M')
     except (ValueError, TypeError):
         return value
-

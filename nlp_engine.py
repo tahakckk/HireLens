@@ -168,16 +168,17 @@ class NLPEngine:
 
     @property
     def nlp(self):
-        # NOT: spaCy kütüphanesini ve yetenek eşleme için özelleştirdiğimiz EntityRuler'ı yüklüyoruz.
+        # The language model is installed with the application dependencies.
+        # Never download or silently downgrade the NLP pipeline during a request.
         if self._nlp is None:
             print(f"[NLP Engine] spaCy modeli yükleniyor: {self._spacy_model_name}...")
             try:
                 self._nlp = spacy.load(self._spacy_model_name)
-            except OSError:
-                import subprocess
-                subprocess.run(["python", "-m", "spacy", "download", self._spacy_model_name],
-                               check=True)
-                self._nlp = spacy.load(self._spacy_model_name)
+            except OSError as exc:
+                raise RuntimeError(
+                    f"Required spaCy model '{self._spacy_model_name}' is not installed. "
+                    "Install the application requirements before starting HireLens."
+                ) from exc
 
             if "entity_ruler" in self._nlp.pipe_names:
                 self._nlp.remove_pipe("entity_ruler")

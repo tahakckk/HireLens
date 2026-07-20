@@ -154,7 +154,7 @@ pip install -r requirements.txt
 ### Phase 5: Download spaCy Model
 Run the command below to fetch the pre-trained NLP model:
 ```cmd
-python -m spacy download en_core_web_sm
+# The required spaCy model is installed by requirements.txt.
 ```
 
 ---
