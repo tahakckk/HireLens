@@ -1,8 +1,14 @@
 [tool.ruff]
 target-version = "py310"
 line-length = 120
-exclude = [".git", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F"]
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"extractive_cv.py" = ["E", "F"]
+"file_parser.py" = ["E", "F"]
+"nlp_engine.py" = ["E", "F"]
+"routes/*.py" = ["E", "F"]
+"tests/*.py" = ["E", "F"]

@@ -230,4 +230,4 @@ For production, serve the dedicated WSGI entry point rather than Flask's develop
 gunicorn wsgi:app
 ```
 
-`create_app()` owns application setup, registers the `main` blueprint, initializes SQLite idempotently, and starts NLP services only when an application instance is created. SQLite connections are scoped to the Flask application context with foreign keys and WAL enabled. Existing `database.db` data is retained; schema upgrades add only missing columns.
+`create_app()` owns application setup, registers the `recruiter` and `job_search` blueprints, initializes SQLite idempotently, and starts NLP services only when an application instance is created. SQLite connections are scoped to the Flask application context with foreign keys and WAL enabled. Existing `database.db` data is retained; schema upgrades add only missing columns.

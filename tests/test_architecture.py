@@ -60,3 +60,21 @@ def test_factory_initializes_models_through_injected_factory(tmp_path):
     })
     assert len(calls) == 1
     assert application.extensions['nlp_engine'].__class__ is RecordingEngine
+
+
+def test_public_pages_render_and_mark_active_navigation(tmp_path):
+    application = make_app(tmp_path)
+    client = application.test_client()
+    expected = {
+        '/': 'id="nav-dashboard"',
+        '/upload-cv': 'id="nav-upload"',
+        '/job-analysis': 'id="nav-jobs"',
+        '/job-search': 'id="nav-job-search"',
+    }
+    for url, marker in expected.items():
+        response = client.get(url)
+        assert response.status_code == 200
+        page = response.get_data(as_text=True)
+        assert marker in page
+        active_link = page[page.index(marker) - 120:page.index(marker)]
+        assert 'active' in active_link

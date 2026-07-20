@@ -34,21 +34,21 @@
             </li>
             <li class="nav-item">
                 <a href="{{ url_for('recruiter.upload_cv') }}"
-                    class="nav-link {% if request.endpoint == 'upload_cv' %}active{% endif %}" id="nav-upload">
+                    class="nav-link {% if request.endpoint == 'recruiter.upload_cv' %}active{% endif %}" id="nav-upload">
                     <span class="nav-icon"><i data-feather="file-text"></i></span>
                     <span>CV Yükle</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a href="{{ url_for('recruiter.job_analysis') }}"
-                    class="nav-link {% if request.endpoint == 'job_analysis' %}active{% endif %}" id="nav-jobs">
+                    class="nav-link {% if request.endpoint == 'recruiter.job_analysis' %}active{% endif %}" id="nav-jobs">
                     <span class="nav-icon"><i data-feather="briefcase"></i></span>
                     <span>İş İlanları</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a href="{{ url_for('job_search.job_search') }}"
-                    class="nav-link {% if request.endpoint == 'job_search' %}active{% endif %}" id="nav-job-search">
+                    class="nav-link {% if request.endpoint == 'job_search.job_search' %}active{% endif %}" id="nav-job-search">
                     <span class="nav-icon"><i data-feather="target"></i></span>
                     <span>Özel CV Oluşturucu</span>
                 </a>

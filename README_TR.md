@@ -229,4 +229,4 @@ Production ortamında Flask geliştirme sunucusu yerine WSGI giriş noktasını 
 gunicorn wsgi:app
 ```
 
-`create_app()` uygulama kurulumunu yapar, `main` blueprint'ini kaydeder, SQLite şemasını idempotent biçimde başlatır ve NLP servislerini yalnızca uygulama örneği oluşturulurken başlatır. Bağlantılar Flask application context kapsamında yönetilir; foreign key ve WAL ayarları etkindir. Var olan `database.db` verisi korunur, yükseltmeler yalnızca eksik sütunları ekler.
+`create_app()` uygulama kurulumunu yapar, `recruiter` and `job_search` blueprints'ini kaydeder, SQLite şemasını idempotent biçimde başlatır ve NLP servislerini yalnızca uygulama örneği oluşturulurken başlatır. Bağlantılar Flask application context kapsamında yönetilir; foreign key ve WAL ayarları etkindir. Var olan `database.db` verisi korunur, yükseltmeler yalnızca eksik sütunları ekler.

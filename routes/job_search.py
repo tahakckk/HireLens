@@ -1,419 +1,40 @@
 import json
-import os
-import sqlite3
 import uuid
 from datetime import datetime
 from pathlib import Path
 
-import numpy as np
-from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, send_file, session, url_for
+from flask import Blueprint, current_app, jsonify, render_template, request, send_file
 from werkzeug.utils import secure_filename
 
-from database import get_db as _database_get_db
+from database import get_db
 from file_parser import parse_file
-from nlp_engine import clean_text
-from job_scraper import parse_job_text, scrape_linkedin_job, validate_linkedin_url
 from file_validation import validate_cv_file
-from services import JobRepository, JobSearchRepository, delete_cv_transaction, safe_upload_path
+from job_scraper import parse_job_text, scrape_linkedin_job, validate_linkedin_url
+from repositories import JobSearchRepository
+from services import JobSearchRepository as JobSearchDeleteRepository
+from routes.helpers import allowed_file, extractive_cv_gen, nlp_engine, remove_upload_file, validate_saved_cv
 
-recruiter_bp = Blueprint("recruiter", __name__)
 job_search_bp = Blueprint("job_search", __name__)
-bp = recruiter_bp
-
-def nlp_engine(): return current_app.extensions["nlp_engine"]
-def db_connection():
-    # Keep the public app.get_db seam available for integrations and regression tests.
-    import app as application_module
-    return application_module.get_db()
-def extractive_cv_gen(): return current_app.extensions["extractive_cv_gen"]
-def allowed_file(filename): return "." in filename and filename.rsplit(".", 1)[1].lower() in current_app.config["ALLOWED_EXTENSIONS"]
-def get_upload_path(stored_filename): return safe_upload_path(current_app.config["UPLOAD_FOLDER"], stored_filename)
-def remove_upload_file(filepath):
-    try:
-        if filepath and filepath.is_file(): filepath.unlink()
-    except OSError:
-        current_app.logger.exception("Unable to remove temporary uploaded CV file")
-def validate_saved_cv(filepath):
-    try: is_valid = validate_cv_file(str(filepath))
-    except OSError:
-        current_app.logger.exception("Unable to validate uploaded CV file"); is_valid = False
-    if not is_valid: remove_upload_file(filepath)
-    return is_valid
-def embedding_to_bytes(embedding): return embedding.tobytes()
-def bytes_to_embedding(data): return np.frombuffer(data, dtype=np.float32)
-
-@bp.route('/')
-def index():
-
-    db = db_connection()
-    cv_count = db.execute("SELECT COUNT(*) FROM cvs").fetchone()[0]
-    job_count = db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
-    match_count = db.execute("SELECT COUNT(DISTINCT job_id) FROM matches").fetchone()[0]
-
-    recent_cvs = db.execute(
-        "SELECT id, filename, extracted_skills, uploaded_at FROM cvs ORDER BY uploaded_at DESC LIMIT 5"
-    ).fetchall()
-
-    recent_jobs = db.execute(
-        "SELECT id, title, required_skills, created_at FROM jobs ORDER BY created_at DESC LIMIT 5"
-    ).fetchall()
-
-    return render_template('index.html',
-                           cv_count=cv_count,
-                           job_count=job_count,
-                           match_count=match_count,
-                           recent_cvs=recent_cvs,
-                           recent_jobs=recent_jobs)
-
-@bp.route('/upload-cv', methods=['GET', 'POST'])
-def upload_cv():
-
-    if request.method == 'POST':
-        if 'files' not in request.files:
-            flash('Dosya seçilmedi.', 'error')
-            return redirect(request.url)
-
-        files = request.files.getlist('files')
-        uploaded_count = 0
-        errors = []
-
-        for file in files:
-            filepath = None
-            if file.filename == '':
-                continue
-
-            if not allowed_file(file.filename):
-                errors.append(f"'{file.filename}' — sadece PDF ve DOCX dosyaları desteklenmektedir.")
-                continue
-
-            try:
-
-                filename = secure_filename(file.filename)
-                unique_name = f"{uuid.uuid4().hex[:8]}_{filename}"
-                filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_name)
-                file.save(filepath)
-
-                if not validate_saved_cv(Path(filepath)):
-                    errors.append(f"'{filename}' — dosya içeriği geçersiz veya desteklenmiyor.")
-                    continue
-
-                parse_result = parse_file(filepath)
-                raw_text = parse_result['text']
-                warnings = parse_result['warnings']
-
-                if not raw_text or len(raw_text.strip()) < 50:
-                    errors.append(f"'{filename}' — PDF/DOCX'den yeterli metin çıkarılamadı.")
-                    remove_upload_file(Path(filepath))
-                    continue
-
-                if warnings:
-                    session['upload_warnings'] = warnings
-
-                extracted_info = nlp_engine().extract_cv_info(raw_text)
-
-                cleaned = clean_text(raw_text)
-
-                embedding = nlp_engine().encode_text(raw_text)
-
-                cv_id = str(uuid.uuid4())
-                db = db_connection()
-                db.execute(
-                    """INSERT INTO cvs (id, filename, file_path, original_text, cleaned_text,
-                       extracted_skills, timeline, experience_months, skill_recency, metadata, embedding, uploaded_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (cv_id, filename, unique_name, raw_text, cleaned,
-                     json.dumps(extracted_info.get('skills', [])),
-                     json.dumps(extracted_info.get('timeline', [])),
-                     extracted_info.get('total_experience_months', 0),
-                     json.dumps(extracted_info.get('skill_recency', {})),
-                     json.dumps({'warnings': warnings}),
-                     embedding_to_bytes(embedding),
-                     datetime.now().isoformat())
-                )
-                db.commit()
-
-                uploaded_count += 1
-
-            except Exception:
-                current_app.logger.exception('CV upload failed')
-                remove_upload_file(Path(filepath) if filepath else None)
-                errors.append(f"'{file.filename}' — CV işlenemedi. Lütfen geçerli bir PDF veya DOCX deneyin.")
-
-        if uploaded_count > 0:
-            flash(f'{uploaded_count} CV başarıyla yüklendi ve analiz edildi!', 'success')
-        if errors:
-            for err in errors:
-                flash(err, 'error')
-
-        return redirect(url_for('recruiter.upload_cv'))
-
-    db = db_connection()
-    cvs = db.execute(
-        "SELECT id, filename, file_path, extracted_skills, uploaded_at, experience_months FROM cvs ORDER BY uploaded_at DESC"
-    ).fetchall()
-
-    return render_template('upload_cv.html', cvs=cvs)
-
-@bp.route('/job-analysis', methods=['GET', 'POST'])
-def job_analysis():
-
-    if request.method == 'POST':
-        title = request.form.get('title', '').strip()
-        description = request.form.get('description', '').strip()
-        custom_skills = request.form.get('custom_skills', '').strip()
-        linkedin_url = request.form.get('linkedin_url', '').strip()
-
-        if linkedin_url:
-            if not validate_linkedin_url(linkedin_url):
-                flash('Geçersiz LinkedIn URL formatı.', 'error')
-                return redirect(request.url)
-
-            scrape_res = scrape_linkedin_job(linkedin_url)
-            if not scrape_res['success']:
-                flash('LinkedIn ilanı çekilemedi: ' + scrape_res.get('error', 'Hata'), 'error')
-                return redirect(request.url)
-
-            title = scrape_res['title']
-            description = scrape_res['description']
-
-            custom_skills = ""
-
-        if not title:
-            flash('İş ilanı başlığı boş olamaz.', 'error')
-            return redirect(request.url)
-
-        if not description:
-            flash('İş ilanı açıklaması boş olamaz.', 'error')
-            return redirect(request.url)
-
-        try:
-
-            cleaned_desc = clean_text(description)
-
-            extracted_skills = nlp_engine().extract_skills(description)
-
-            if custom_skills:
-                user_skills = [s.strip().lower() for s in custom_skills.split(',') if s.strip()]
-                extracted_skills = sorted(list(set(extracted_skills + user_skills)))
-
-            job_reqs = nlp_engine().extract_job_requirements(description)
-            must_have = job_reqs['must_have_skills']
-            nice_to_have = job_reqs['nice_to_have_skills']
-
-            if custom_skills:
-                for s in user_skills:
-                    if s not in must_have:
-                        must_have.append(s)
-                must_have = sorted(list(set(must_have)))
-
-            embedding = nlp_engine().encode_text(description)
-
-            job_id = str(uuid.uuid4())
-            db = db_connection()
-            db.execute(
-                """INSERT INTO jobs (id, title, description, cleaned_description,
-                   required_skills, must_have_skills, nice_to_have_skills,
-                   embedding, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (job_id, title, description, cleaned_desc,
-                 json.dumps(extracted_skills),
-                 json.dumps(must_have),
-                 json.dumps(nice_to_have),
-                 embedding_to_bytes(embedding),
-                 datetime.now().isoformat())
-            )
-            db.commit()
-
-            must_count = len(must_have)
-            nice_count = len(nice_to_have)
-            total = len(extracted_skills)
-            flash(
-                f'İş ilanı "{title}" kaydedildi! '
-                f'{total} yetenek tespit edildi '
-                f'({must_count} zorunlu, {nice_count} tercih edilen).',
-                'success'
-            )
-            return redirect(url_for('recruiter.job_analysis'))
-
-        except Exception:
-            current_app.logger.exception('Job analysis failed')
-            flash('İş ilanı işlenemedi. Lütfen tekrar deneyin.', 'error')
-            return redirect(request.url)
-
-    db = db_connection()
-    jobs = db.execute(
-        "SELECT id, title, required_skills, must_have_skills, description, created_at FROM jobs ORDER BY created_at DESC"
-    ).fetchall()
-
-    return render_template('job_analysis.html', jobs=jobs)
-
-@bp.route('/match/<job_id>', methods=['POST'])
-def run_match(job_id):
-
-    db = db_connection()
-
-    job = db.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
-    if not job:
-        flash('İş ilanı bulunamadı.', 'error')
-        return redirect(url_for('recruiter.job_analysis'))
-
-    cvs = db.execute("SELECT * FROM cvs").fetchall()
-    if not cvs:
-        flash('Henüz yüklenmiş CV bulunmuyor. Önce CV yükleyin.', 'error')
-        return redirect(url_for('recruiter.upload_cv'))
-
-    job_embedding = bytes_to_embedding(job['embedding'])
-    must_have_raw = job.get('must_have_skills') if hasattr(job, 'get') else job['must_have_skills']
-    must_have_skills = json.loads(must_have_raw) if must_have_raw else []
-
-    db.execute("DELETE FROM matches WHERE job_id = ?", (job_id,))
-
-    for cv_row in cvs:
-
-        cv = dict(cv_row)
-
-        cv_metadata = json.loads(cv.get('metadata') or '{}')
-        pdf_warnings = cv_metadata.get('warnings', [])
-
-        ats_result = nlp_engine().calculate_ats_score(
-            cv_text=cv.get('original_text', ''),
-            job_description=job['description'],
-            pdf_warnings=pdf_warnings
-        )
-
-        job_skills = nlp_engine().extract_skills(job['description'])
-        cv_skills = json.loads(cv.get('extracted_skills', '[]'))
-        gap = nlp_engine().semantic_gap_analysis(job_skills, cv_skills)
-
-        match_id = str(uuid.uuid4())
-        db.execute(
-            """INSERT INTO matches (
-                id, job_id, cv_id, match_score, matching_skills,
-                semantic_matches, missing_skills, extra_skills,
-                timeline_gaps, experience_score, coverage_percent,
-                text_similarity, format_score, keyword_score,
-                section_score, language_match, missing_must_haves,
-                sections_found, cv_lang, job_lang, title_match_bonus,
-                is_disqualified, penalty_applied, is_pretty_resume, detail_metrics
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                match_id, job_id, cv['id'], ats_result['final_score'],
-                json.dumps(gap['exact_matches']),
-                json.dumps(gap['semantic_matches']),
-                json.dumps(gap['missing_skills']),
-                json.dumps(gap['extra_skills']),
-                json.dumps(cv.get('gaps_detected', [])),
-                0,
-                gap['coverage_percent'],
-                0,
-                ats_result['format_score'],
-                ats_result['keyword_score'],
-                ats_result['section_score'],
-                1 if ats_result['language_match'] else 0,
-                json.dumps(ats_result['missing_must_haves']),
-                json.dumps(ats_result['sections_found']),
-                ats_result['cv_lang'],
-                ats_result['job_lang'],
-                ats_result['title_match_bonus'],
-                ats_result['is_disqualified'],
-                ats_result['penalty_applied'],
-                ats_result['is_pretty_resume'],
-                json.dumps(ats_result['detail_metrics'])
-            )
-        )
-
-    db.commit()
-    return redirect(url_for('recruiter.results', job_id=job_id))
-
-@bp.route('/results/<job_id>')
-def results(job_id):
-
-    db = db_connection()
-
-    job = db.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
-    if not job:
-        flash('İş ilanı bulunamadı.', 'error')
-        return redirect(url_for('recruiter.index'))
-
-    matches = db.execute("""
-        SELECT m.*, c.filename, c.extracted_skills as cv_skills, c.experience_months
-        FROM matches m
-        JOIN cvs c ON m.cv_id = c.id
-        WHERE m.job_id = ?
-        ORDER BY m.is_disqualified ASC, m.match_score DESC
-    """, (job_id,)).fetchall()
-
-    return render_template('results.html', job=job, matches=matches)
-
-@bp.route('/api/delete-cv/<cv_id>', methods=['DELETE'])
-def delete_cv(cv_id):
-    try:
-        deleted, cleanup_pending = delete_cv_transaction(
-            db_connection(), cv_id, current_app.config['UPLOAD_FOLDER']
-        )
-    except (OSError, sqlite3.Error):
-        current_app.logger.exception('CV deletion failed')
-        return jsonify({'success': False, 'message': 'CV silinemedi. Lütfen tekrar deneyin.'}), 500
-    if not deleted:
-        return jsonify({'success': False, 'message': 'CV bulunamadı.'}), 404
-    if cleanup_pending:
-        current_app.logger.exception('CV database records deleted but staged file cleanup failed')
-        return jsonify({'success': True, 'message': 'CV silindi; dosya temizliği başarısız oldu. Sistem yöneticisine başvurun.', 'cleanup_pending': True})
-    return jsonify({'success': True, 'message': 'CV silindi.'})
-
-@bp.route('/api/delete-job/<job_id>', methods=['DELETE'])
-def delete_job(job_id):
-
-    db = db_connection()
-    JobRepository(db).delete_with_matches(job_id)
-    db.commit()
-    return jsonify({'success': True, 'message': 'İş ilanı silindi.'})
-
-@bp.route('/download_cv/<cv_id>')
-def download_cv_file(cv_id):
-
-    db = db_connection()
-    cv = db.execute("SELECT file_path, filename FROM cvs WHERE id = ?", (cv_id,)).fetchone()
-    if not cv or not cv['file_path']:
-        flash('Dosya bulunamadı veya eski bir CV olduğu için silinmiş.', 'error')
-        return redirect(url_for('recruiter.upload_cv'))
-
-    filepath = get_upload_path(cv['file_path'])
-    if not filepath or not filepath.is_file():
-        flash('Fiziksel dosya sunucuda bulunamadı.', 'error')
-        return redirect(url_for('recruiter.upload_cv'))
-
-    from flask import send_from_directory
-    return send_from_directory(filepath.parent, filepath.name, as_attachment=True, download_name=cv['filename'])
 
 @job_search_bp.route('/api/job-search/delete-session/<session_id>', methods=['DELETE'])
 def job_search_delete_session(session_id):
 
-    db = db_connection()
-    JobSearchRepository(db).delete_session(session_id)
-    db.commit()
+    repository = JobSearchRepository(get_db())
+    JobSearchDeleteRepository(repository._db).delete_session(session_id)
+    repository.commit()
     return jsonify({'success': True, 'message': 'Oturum silindi.'})
 
-@bp.route('/api/stats')
-def api_stats():
-
-    db = db_connection()
-    return jsonify({
-        'cv_count': db.execute("SELECT COUNT(*) FROM cvs").fetchone()[0],
-        'job_count': db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0],
-        'match_count': db.execute("SELECT COUNT(DISTINCT job_id) FROM matches").fetchone()[0],
-    })
 
 @job_search_bp.route('/job-search')
 def job_search():
 
-    db = db_connection()
+    repository = JobSearchRepository(get_db())
 
-    profiles = db.execute(
+    profiles = repository.execute(
         "SELECT id, original_filename, extracted_skills, created_at FROM user_profiles ORDER BY created_at DESC"
     ).fetchall()
 
-    sessions = db.execute("""
+    sessions = repository.execute("""
         SELECT s.*, p.original_filename
         FROM job_search_sessions s
         JOIN user_profiles p ON s.profile_id = p.id
@@ -462,8 +83,8 @@ def job_search_upload_cv():
         skills = nlp_engine().extract_skills(raw_text)
 
         profile_id = str(uuid.uuid4())
-        db = db_connection()
-        db.execute(
+        repository = JobSearchRepository(get_db())
+        repository.execute(
             """INSERT INTO user_profiles (id, original_filename, original_text,
                profile_data, extracted_skills, created_at)
                VALUES (?, ?, ?, ?, ?, ?)""",
@@ -472,7 +93,7 @@ def job_search_upload_cv():
              json.dumps(skills),
              datetime.now().isoformat())
         )
-        db.commit()
+        repository.commit()
 
         remove_upload_file(Path(filepath))
 
@@ -537,8 +158,8 @@ def job_search_generate_cv():
     if not job_data:
         return jsonify({'success': False, 'error': 'İlan bilgileri gerekli.'}), 400
 
-    db = db_connection()
-    profile = db.execute("SELECT * FROM user_profiles WHERE id = ?", (profile_id,)).fetchone()
+    repository = JobSearchRepository(get_db())
+    profile = repository.execute("SELECT * FROM user_profiles WHERE id = ?", (profile_id,)).fetchone()
     if not profile:
         return jsonify({'success': False, 'error': 'Profil bulunamadı.'}), 404
 
@@ -551,7 +172,7 @@ def job_search_generate_cv():
         return jsonify({'success': False, 'error': 'CV oluşturulamadı. Lütfen tekrar deneyin.'}), 500
 
     session_id = str(uuid.uuid4())
-    db.execute(
+    repository.execute(
         """INSERT INTO job_search_sessions (id, profile_id, job_url, job_data,
            optimized_cv, status, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)""",
@@ -562,7 +183,7 @@ def job_search_generate_cv():
          'completed',
          datetime.now().isoformat())
     )
-    db.commit()
+    repository.commit()
 
     return jsonify({
         'success': True,
@@ -690,8 +311,8 @@ def job_search_download_cv(session_id):
 
     file_format = request.args.get('format', 'pdf').lower()
 
-    db = db_connection()
-    session = db.execute("SELECT * FROM job_search_sessions WHERE id = ?", (session_id,)).fetchone()
+    repository = JobSearchRepository(get_db())
+    session = repository.execute("SELECT * FROM job_search_sessions WHERE id = ?", (session_id,)).fetchone()
     if not session:
         return jsonify({'success': False, 'error': 'Oturum bulunamadı.'}), 404
 
@@ -708,8 +329,8 @@ def job_search_download_cv(session_id):
             mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         )
 
-    db = db_connection()
-    session = db.execute("SELECT * FROM job_search_sessions WHERE id = ?", (session_id,)).fetchone()
+    repository = JobSearchRepository(get_db())
+    session = repository.execute("SELECT * FROM job_search_sessions WHERE id = ?", (session_id,)).fetchone()
     if not session:
         return jsonify({'success': False, 'error': 'Oturum bulunamadı.'}), 404
 
@@ -913,25 +534,8 @@ def job_search_download_cv(session_id):
 @job_search_bp.route('/api/job-search/delete-profile/<profile_id>', methods=['DELETE'])
 def delete_profile(profile_id):
 
-    db = db_connection()
-    JobSearchRepository(db).delete_profile(profile_id)
-    db.commit()
+    repository = JobSearchRepository(get_db())
+    JobSearchDeleteRepository(repository._db).delete_profile(profile_id)
+    repository.commit()
     return jsonify({'success': True, 'message': 'Profil silindi.'})
-
-@bp.app_template_filter('parse_json')
-def parse_json_filter(value):
-
-    try:
-        return json.loads(value)
-    except (json.JSONDecodeError, TypeError):
-        return []
-
-@bp.app_template_filter('format_date')
-def format_date_filter(value):
-
-    try:
-        dt = datetime.fromisoformat(value)
-        return dt.strftime('%d.%m.%Y %H:%M')
-    except (ValueError, TypeError):
-        return value
 
