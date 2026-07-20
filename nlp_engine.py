@@ -130,26 +130,7 @@ STANDARD_SECTIONS = {
     "certifications": ["sertifikalar", "nitelikler", "certifications", "certificates", "eğitimler ve sertifikalar"]
 }
 
-def clean_text(text: str) -> str:
-
-    if not text or not isinstance(text, str):
-        return ""
-
-    text = str(text)
-
-    text = re.sub(r'http\S+\s*', ' ', text)
-
-    text = re.sub(r'\bRT\b|\bcc\b', ' ', text)
-
-    text = re.sub(r'#\S+', '', text)
-
-    text = re.sub(r'@\S+', ' ', text)
-
-    text = re.sub(r'[^\w\s\.\+\#/]', ' ', text)
-
-    text = re.sub(r'\s+', ' ', text)
-
-    return text.lower().strip()
+from text_utils import clean_text
 
 class NLPEngine:
 

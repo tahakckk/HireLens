@@ -1,5 +1,6 @@
 """HireLens Flask application factory."""
 import os
+from collections.abc import Mapping
 
 from flask import Flask
 
@@ -41,7 +42,7 @@ def create_app(config_object=None):
     app.config.from_object(Config)
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
     if config_object is not None:
-        if isinstance(config_object, dict):
+        if isinstance(config_object, Mapping):
             app.config.from_mapping(config_object)
         else:
             app.config.from_object(config_object)

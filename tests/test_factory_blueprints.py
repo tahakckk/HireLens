@@ -80,3 +80,44 @@ def test_page_smoke_renders_with_active_navigation(app, url, nav_id):
     assert response.status_code == 200
     marker = response.data.index(nav_id)
     assert b"active" in response.data[marker - 120:marker + 180]
+
+
+def test_factory_accepts_non_dict_mapping_config(tmp_path):
+    from collections import UserDict
+
+    app = create_app(UserDict({
+        "TESTING": True,
+        "SECRET_KEY": "mapping-secret-key-that-is-longer-than-32-characters",
+        "DATABASE": str(tmp_path / "mapping.db"),
+        "UPLOAD_FOLDER": str(tmp_path / "mapping-uploads"),
+        "NLP_ENGINE_FACTORY": FakeNLP,
+        "EXTRACTIVE_CV_FACTORY": FakeGenerator,
+    }))
+
+    assert app.config["TESTING"] is True
+
+
+def test_factory_accepts_config_class(tmp_path):
+    class TestConfig:
+        TESTING = True
+        SECRET_KEY = "class-secret-key-that-is-longer-than-32-characters"
+        DATABASE = str(tmp_path / "class.db")
+        UPLOAD_FOLDER = str(tmp_path / "class-uploads")
+        NLP_ENGINE_FACTORY = FakeNLP
+        EXTRACTIVE_CV_FACTORY = FakeGenerator
+
+    app = create_app(TestConfig)
+
+    assert app.config["TESTING"] is True
+
+
+def test_clean_text_uses_single_source_and_preserves_output():
+    from nlp_engine import clean_text as engine_clean_text
+    from routes.recruiter import clean_text as recruiter_clean_text
+    from text_utils import clean_text
+
+    source = " RT Hello! https://example.com #tag @name cc C++ / Python\n"
+    assert clean_text(source) == "hello c++ / python"
+    assert clean_text(None) == ""
+    assert engine_clean_text is clean_text
+    assert recruiter_clean_text is clean_text

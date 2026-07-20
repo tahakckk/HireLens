@@ -13,7 +13,7 @@ from werkzeug.utils import secure_filename
 from database import get_db
 from file_parser import parse_file
 from job_scraper import scrape_linkedin_job, validate_linkedin_url
-from routes.helpers import clean_text
+from text_utils import clean_text
 from routes.helpers import allowed_file, get_upload_path, remove_upload_file, validate_saved_cv
 
 recruiter_bp = Blueprint("recruiter", __name__)

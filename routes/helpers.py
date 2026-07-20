@@ -1,6 +1,5 @@
 """Shared HTTP and upload helpers for the application blueprints."""
 from pathlib import Path
-import re
 
 from flask import current_app
 
@@ -36,16 +35,3 @@ def validate_saved_cv(filepath):
     if not is_valid:
         remove_upload_file(filepath)
     return is_valid
-
-
-def clean_text(text):
-    """Normalize document text without initializing NLP dependencies."""
-    if not text or not isinstance(text, str):
-        return ""
-    text = str(text)
-    text = re.sub(r"http\S+\s*", " ", text)
-    text = re.sub(r"\bRT\b|\bcc\b", " ", text)
-    text = re.sub(r"#\S+", "", text)
-    text = re.sub(r"@\S+", " ", text)
-    text = re.sub(r"[^\w\s\.\+\#/]", " ", text)
-    return re.sub(r"\s+", " ", text).lower().strip()
