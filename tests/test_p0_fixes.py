@@ -174,10 +174,8 @@ def test_delete_cv_preserves_file_when_database_commit_fails(monkeypatch, tmp_pa
 
     with flask_app.app_context():
         failing_db = FailingCommitDB(__import__('database', fromlist=['get_db']).get_db())
-        original_get_db = __import__('database', fromlist=['get_db']).get_db
-        monkeypatch.setattr('routes.recruiter.get_db', lambda: failing_db)
+        monkeypatch.setattr('repositories.get_db', lambda: failing_db)
         response = flask_app.test_client().delete('/api/delete-cv/cv-3')
-        monkeypatch.setattr('routes.recruiter.get_db', original_get_db)
 
     assert response.status_code == 500
     assert uploaded_file.exists()

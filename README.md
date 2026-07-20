@@ -210,6 +210,11 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Development and production
 
+HTTP handlers live in the `routes` package, named SQLite operations live in
+`repositories.py`, and workflows that coordinate database and filesystem side
+effects live in `services.py`. Route modules should not contain SQL or manage
+transactions directly.
+
 Set `SECRET_KEY` to a unique value of at least 32 characters before starting the app. The application fails closed when it is missing or too short.
 
 For development, run `python app.py`; the development entry point uses `create_app()` with debug mode disabled. For production, install the runtime dependencies and run:
