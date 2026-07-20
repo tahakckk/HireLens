@@ -207,3 +207,13 @@ These notes serve as personal presentation highlights, explaining:
 ## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
+
+## Development and production
+
+Set `SECRET_KEY` to a unique value of at least 32 characters before starting the app. The application fails closed when it is missing or too short.
+
+For development, run `python app.py`; the development entry point uses `create_app()` with debug mode disabled. For production, install the runtime dependencies and run:
+
+```bash
+gunicorn wsgi:app
+```

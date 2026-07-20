@@ -282,7 +282,7 @@
         <div class="empty-state">
             <span class="empty-icon"><i data-feather="search"></i></span>
             <p>Henüz eşleştirme yapılmamış</p>
-            <a href="{{ url_for('job_analysis') }}" class="btn btn-primary">İş İlanları Sayfasına Git</a>
+            <a href="{{ url_for('recruiter.job_analysis') }}" class="btn btn-primary">İş İlanları Sayfasına Git</a>
         </div>
     </div>
 </div>
@@ -290,7 +290,7 @@
 
 <!-- Back Button -->
 <div class="result-actions">
-    <a href="{{ url_for('job_analysis') }}" class="btn btn-ghost">← İş İlanlarına Dön</a>
-    <a href="{{ url_for('index') }}" class="btn btn-ghost"><i data-feather="bar-chart-2"></i> Dashboard'a Git</a>
+    <a href="{{ url_for('recruiter.job_analysis') }}" class="btn btn-ghost">← İş İlanlarına Dön</a>
+    <a href="{{ url_for('recruiter.index') }}" class="btn btn-ghost"><i data-feather="bar-chart-2"></i> Dashboard'a Git</a>
 </div>
 {% endblock %}

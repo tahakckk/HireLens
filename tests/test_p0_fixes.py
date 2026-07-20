@@ -1,8 +1,6 @@
-import importlib
 from io import BytesIO
 import sqlite3
 import sys
-import types
 import zipfile
 from pathlib import Path
 
@@ -15,53 +13,27 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from file_validation import validate_cv_file
 
 
-def mock_app_dependencies(monkeypatch):
-    """Install light fakes so startup validation runs before heavyweight models."""
-    nlp_module = types.ModuleType('nlp_engine')
+def load_app(monkeypatch, tmp_path):
+    """Build a test application with injected, lightweight services."""
+    import app as application
 
     class FakeNLPEngine:
         def __init__(self, **_kwargs):
             pass
 
-    nlp_module.NLPEngine = FakeNLPEngine
-    nlp_module.clean_text = lambda text: text
-    monkeypatch.setitem(sys.modules, 'nlp_engine', nlp_module)
-
-    scraper_module = types.ModuleType('job_scraper')
-    scraper_module.scrape_linkedin_job = lambda _url: None
-    scraper_module.parse_job_text = lambda *_args: None
-    scraper_module.validate_linkedin_url = lambda _url: False
-    monkeypatch.setitem(sys.modules, 'job_scraper', scraper_module)
-
-    cv_module = types.ModuleType('extractive_cv')
-
     class FakeGenerator:
         def __init__(self, **_kwargs):
             pass
 
-    cv_module.ExtractiveCVGenerator = FakeGenerator
-    monkeypatch.setitem(sys.modules, 'extractive_cv', cv_module)
-
-
-def load_app(monkeypatch, tmp_path):
-    """Import the Flask app without loading the heavyweight NLP models."""
-    monkeypatch.setenv('SECRET_KEY', 'test-secret-key-that-is-longer-than-32-characters')
-
-    mock_app_dependencies(monkeypatch)
-
-    sys.modules.pop('config', None)
-    sys.modules.pop('app', None)
-    application = importlib.import_module('app')
-    application.app.config.update(
-        TESTING=True,
-        DATABASE=str(tmp_path / 'test.db'),
-        UPLOAD_FOLDER=str(tmp_path / 'uploads'),
-    )
-    application.os.makedirs(application.app.config['UPLOAD_FOLDER'], exist_ok=True)
-    with application.app.app_context():
-        application.init_db()
-    return application
-
+    flask_app = application.create_app({
+        "TESTING": True,
+        "SECRET_KEY": "test-secret-key-that-is-longer-than-32-characters",
+        "DATABASE": str(tmp_path / "test.db"),
+        "UPLOAD_FOLDER": str(tmp_path / "uploads"),
+        "NLP_ENGINE_FACTORY": FakeNLPEngine,
+        "EXTRACTIVE_CV_FACTORY": FakeGenerator,
+    })
+    return application, flask_app
 
 def test_application_startup_rejects_blank_example_secret(monkeypatch):
     example_secret = next(
@@ -70,27 +42,27 @@ def test_application_startup_rejects_blank_example_secret(monkeypatch):
         if line.startswith('SECRET_KEY=')
     )
     monkeypatch.setenv('SECRET_KEY', example_secret)
-    sys.modules.pop('config', None)
-    sys.modules.pop('app', None)
-    mock_app_dependencies(monkeypatch)
+    import app as application
 
     with pytest.raises(RuntimeError, match='SECRET_KEY'):
-        importlib.import_module('app')
+        application.create_app({'NLP_ENGINE_FACTORY': lambda **kwargs: None, 'EXTRACTIVE_CV_FACTORY': lambda **kwargs: None})
 
 
 def test_application_startup_accepts_real_secret(monkeypatch, tmp_path):
-    application = load_app(monkeypatch, tmp_path)
+    application, flask_app = load_app(monkeypatch, tmp_path)
 
-    assert application.app.config['SECRET_KEY'] == 'test-secret-key-that-is-longer-than-32-characters'
+    assert flask_app.config['SECRET_KEY'] == 'test-secret-key-that-is-longer-than-32-characters'
 
 
 def test_allowed_file_accepts_only_pdf_and_docx(monkeypatch, tmp_path):
-    application = load_app(monkeypatch, tmp_path)
+    application, flask_app = load_app(monkeypatch, tmp_path)
 
-    assert application.allowed_file('resume.PDF')
-    assert application.allowed_file('resume.docx')
-    assert not application.allowed_file('resume.doc')
-    assert not application.allowed_file('resume.pdf.exe')
+    from routes.helpers import allowed_file
+    with flask_app.app_context():
+        assert allowed_file('resume.PDF')
+        assert allowed_file('resume.docx')
+        assert not allowed_file('resume.doc')
+        assert not allowed_file('resume.pdf.exe')
 
 
 def test_cv_content_validation_rejects_fake_files_and_accepts_minimal_files(tmp_path):
@@ -112,8 +84,8 @@ def test_cv_content_validation_rejects_fake_files_and_accepts_minimal_files(tmp_
 
 
 def test_upload_endpoints_reject_invalid_content_and_clean_up(monkeypatch, tmp_path):
-    application = load_app(monkeypatch, tmp_path)
-    client = application.app.test_client()
+    application, flask_app = load_app(monkeypatch, tmp_path)
+    client = flask_app.test_client()
 
     main_response = client.post(
         '/upload-cv',
@@ -140,50 +112,50 @@ def test_file_preview_uses_text_content_for_file_names():
 
 
 def test_delete_cv_removes_safe_upload_and_related_matches(monkeypatch, tmp_path):
-    application = load_app(monkeypatch, tmp_path)
+    application, flask_app = load_app(monkeypatch, tmp_path)
     uploaded_file = tmp_path / 'uploads' / 'stored_resume.pdf'
     uploaded_file.write_text('cv')
 
-    with application.app.app_context():
-        db = application.get_db()
+    with flask_app.app_context():
+        db = __import__('database', fromlist=['get_db']).get_db()
         db.execute("INSERT INTO cvs (id, filename, file_path) VALUES (?, ?, ?)", ('cv-1', 'resume.pdf', uploaded_file.name))
         db.execute("INSERT INTO jobs (id, title, description) VALUES (?, ?, ?)", ('job-1', 'Role', 'Description'))
         db.execute("INSERT INTO matches (id, job_id, cv_id) VALUES (?, ?, ?)", ('match-1', 'job-1', 'cv-1'))
         db.commit()
 
-    response = application.app.test_client().delete('/api/delete-cv/cv-1')
+    response = flask_app.test_client().delete('/api/delete-cv/cv-1')
 
     assert response.status_code == 200
     assert not uploaded_file.exists()
-    with application.app.app_context():
-        db = application.get_db()
+    with flask_app.app_context():
+        db = __import__('database', fromlist=['get_db']).get_db()
         assert db.execute("SELECT 1 FROM cvs WHERE id = 'cv-1'").fetchone() is None
         assert db.execute("SELECT 1 FROM matches WHERE id = 'match-1'").fetchone() is None
 
 
 def test_delete_cv_does_not_follow_traversal_path(monkeypatch, tmp_path):
-    application = load_app(monkeypatch, tmp_path)
+    application, flask_app = load_app(monkeypatch, tmp_path)
     outside_file = tmp_path / 'outside.pdf'
     outside_file.write_text('must remain')
 
-    with application.app.app_context():
-        db = application.get_db()
+    with flask_app.app_context():
+        db = __import__('database', fromlist=['get_db']).get_db()
         db.execute("INSERT INTO cvs (id, filename, file_path) VALUES (?, ?, ?)", ('cv-2', 'resume.pdf', '../outside.pdf'))
         db.commit()
 
-    response = application.app.test_client().delete('/api/delete-cv/cv-2')
+    response = flask_app.test_client().delete('/api/delete-cv/cv-2')
 
     assert response.status_code == 200
     assert outside_file.exists()
 
 
 def test_delete_cv_preserves_file_when_database_commit_fails(monkeypatch, tmp_path):
-    application = load_app(monkeypatch, tmp_path)
+    application, flask_app = load_app(monkeypatch, tmp_path)
     uploaded_file = tmp_path / 'uploads' / 'stored_resume.pdf'
     uploaded_file.write_text('cv')
 
-    with application.app.app_context():
-        db = application.get_db()
+    with flask_app.app_context():
+        db = __import__('database', fromlist=['get_db']).get_db()
         db.execute("INSERT INTO cvs (id, filename, file_path) VALUES (?, ?, ?)", ('cv-3', 'resume.pdf', uploaded_file.name))
         db.commit()
 
@@ -200,26 +172,26 @@ def test_delete_cv_preserves_file_when_database_commit_fails(monkeypatch, tmp_pa
         def rollback(self):
             self.database.rollback()
 
-    with application.app.app_context():
-        failing_db = FailingCommitDB(application.get_db())
-        original_get_db = application.get_db
-        monkeypatch.setattr(application, 'get_db', lambda: failing_db)
-        response = application.app.test_client().delete('/api/delete-cv/cv-3')
-        monkeypatch.setattr(application, 'get_db', original_get_db)
+    with flask_app.app_context():
+        failing_db = FailingCommitDB(__import__('database', fromlist=['get_db']).get_db())
+        original_get_db = __import__('database', fromlist=['get_db']).get_db
+        monkeypatch.setattr('routes.recruiter.get_db', lambda: failing_db)
+        response = flask_app.test_client().delete('/api/delete-cv/cv-3')
+        monkeypatch.setattr('routes.recruiter.get_db', original_get_db)
 
     assert response.status_code == 500
     assert uploaded_file.exists()
-    with application.app.app_context():
-        db = application.get_db()
+    with flask_app.app_context():
+        db = __import__('database', fromlist=['get_db']).get_db()
         assert db.execute("SELECT 1 FROM cvs WHERE id = 'cv-3'").fetchone() is not None
 
 
 def test_delete_cv_reports_staged_file_cleanup_failure(monkeypatch, tmp_path):
-    application = load_app(monkeypatch, tmp_path)
+    application, flask_app = load_app(monkeypatch, tmp_path)
     uploaded_file = tmp_path / 'uploads' / 'stored_resume.pdf'
     uploaded_file.write_text('cv')
-    with application.app.app_context():
-        db = application.get_db()
+    with flask_app.app_context():
+        db = __import__('database', fromlist=['get_db']).get_db()
         db.execute("INSERT INTO cvs (id, filename, file_path) VALUES (?, ?, ?)", ('cv-4', 'resume.pdf', uploaded_file.name))
         db.commit()
 
@@ -231,7 +203,7 @@ def test_delete_cv_reports_staged_file_cleanup_failure(monkeypatch, tmp_path):
         return original_unlink(path, *args, **kwargs)
 
     monkeypatch.setattr(Path, 'unlink', fail_staged_unlink)
-    response = application.app.test_client().delete('/api/delete-cv/cv-4')
+    response = flask_app.test_client().delete('/api/delete-cv/cv-4')
 
     assert response.status_code == 200
     assert response.get_json()['cleanup_pending'] is True

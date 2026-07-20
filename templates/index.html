@@ -42,12 +42,12 @@
     <h2>Hızlı İşlemler</h2>
 </div>
 <div class="actions-grid">
-    <a href="{{ url_for('upload_cv') }}" class="action-card" id="action-upload">
+    <a href="{{ url_for('recruiter.upload_cv') }}" class="action-card" id="action-upload">
         <div class="action-icon"><i data-feather="upload"></i></div>
         <h3>CV Yükle</h3>
         <p>PDF formatında CV yükleyin, AI otomatik analiz etsin</p>
     </a>
-    <a href="{{ url_for('job_analysis') }}" class="action-card" id="action-job">
+    <a href="{{ url_for('recruiter.job_analysis') }}" class="action-card" id="action-job">
         <div class="action-icon"><i data-feather="search"></i></div>
         <h3>İş İlanı Ekle</h3>
         <p>İş ilanı girin, gereken yetenekleri otomatik tespit edin</p>
@@ -60,7 +60,7 @@
     <div class="glass-card">
         <div class="card-header">
             <h3><i data-feather="file-text"></i> Son Yüklenen CV'ler</h3>
-            <a href="{{ url_for('upload_cv') }}" class="card-link">Tümünü Gör →</a>
+            <a href="{{ url_for('recruiter.upload_cv') }}" class="card-link">Tümünü Gör →</a>
         </div>
         <div class="card-body">
             {% if recent_cvs %}
@@ -92,7 +92,7 @@
     <div class="glass-card">
         <div class="card-header">
             <h3><i data-feather="briefcase"></i> Son İş İlanları</h3>
-            <a href="{{ url_for('job_analysis') }}" class="card-link">Tümünü Gör →</a>
+            <a href="{{ url_for('recruiter.job_analysis') }}" class="card-link">Tümünü Gör →</a>
         </div>
         <div class="card-body">
             {% if recent_jobs %}
