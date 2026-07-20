@@ -148,13 +148,12 @@ Uygulamanın çalışması için gereken tüm kütüphaneleri otomatik yükleyin
 ```cmd
 pip install -r requirements.txt
 ```
-*(Bu işlem internet hızınıza bağlı olarak 2-4 dakika sürebilir; SentenceTransformers ve spaCy gibi büyük veri işleme paketleri kurulacaktır).*
-
-### Adım 5: spaCy Dil Modelini İndirme
-Aşağıdaki komutla kelime analizi yapacak spaCy modelini indirin:
-```cmd
-# Gerekli spaCy modeli requirements.txt tarafından otomatik kurulur.
+Linux CPU-only sunucu veya CI ortamında daha küçük production profilini kullanın:
+```bash
+python -m pip install -r requirements-cpu.txt -r requirements-dev.txt
 ```
+spaCy dil modeli bu gereksinimlerle birlikte kurulur. Uygulama çalışırken paket
+indirilmesi gerekmez.
 
 ---
 
@@ -216,8 +215,13 @@ içermemeli veya transaction yönetmemelidir.
 
 Uygulamayı başlatmadan önce `SECRET_KEY` ortam değişkenini en az 32 karakterlik benzersiz bir değer olarak ayarlayın. Bu değer eksik veya kısa olduğunda uygulama güvenli şekilde başlamaz.
 
+Production ortamında `MODEL_CACHE_DIR` değerini kalıcı ve yazılabilir bir dizine
+ayarlayın. Sentence-BERT modeli burada saklanır ve yeniden başlatmalarda tekrar
+kullanılır. Deployment platformları canlılık için `/health`, veritabanı, servisler
+ve spaCy modeli hazırlığı için `/ready` endpoint'ini kullanabilir.
+
 Geliştirme için `python app.py` komutunu kullanın; giriş noktası `create_app()` kullanır ve debug modu kapalıdır. Production için runtime bağımlılıklarını kurduktan sonra aşağıdaki komutu çalıştırın:
 
 ```bash
-gunicorn wsgi:app
+gunicorn --workers 1 --threads 4 --timeout 180 wsgi:app
 ```

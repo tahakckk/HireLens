@@ -25,6 +25,11 @@ class Config:
     # NOT: Metin içerisindeki yetenek anahtar kelimelerini tanımak için kullanılan spaCy modeli
     SPACY_MODEL = 'en_core_web_sm'
 
+    # Downloaded transformer files survive application restarts in this directory.
+    MODEL_CACHE_DIR = os.environ.get(
+        'MODEL_CACHE_DIR', os.path.join(BASE_DIR, '.model-cache')
+    )
+
     @classmethod
     def validate(cls):
         """Fail closed instead of starting production with an insecure session key."""

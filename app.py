@@ -27,6 +27,7 @@ def _create_services(app):
     nlp_engine = nlp_factory(
         sbert_model_name=app.config["SBERT_MODEL"],
         spacy_model_name=app.config["SPACY_MODEL"],
+        model_cache_dir=app.config["MODEL_CACHE_DIR"],
     )
 
     if cv_factory is None:
@@ -49,12 +50,14 @@ def create_app(config_object=None):
     _validate_secret_key(app)
 
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    os.makedirs(app.config["MODEL_CACHE_DIR"], exist_ok=True)
     init_database_app(app)
     with app.app_context():
         init_db()
     _create_services(app)
 
-    from routes import job_search_bp, recruiter_bp
+    from routes import health_bp, job_search_bp, recruiter_bp
+    app.register_blueprint(health_bp)
     app.register_blueprint(recruiter_bp)
     app.register_blueprint(job_search_bp)
     return app

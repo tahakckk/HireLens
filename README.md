@@ -149,13 +149,12 @@ Install all required libraries automatically:
 ```cmd
 pip install -r requirements.txt
 ```
-*(This process may take 2-4 minutes as it downloads and configures data processing packages like PyMuPDF, spaCy, and SentenceTransformers).*
-
-### Phase 5: Download spaCy Model
-Run the command below to fetch the pre-trained NLP model:
-```cmd
-# The required spaCy model is installed by requirements.txt.
+For a Linux CPU-only server or CI runner, use the smaller production profile:
+```bash
+python -m pip install -r requirements-cpu.txt -r requirements-dev.txt
 ```
+The spaCy language model is installed with these requirements. Runtime package
+downloads are not required.
 
 ---
 
@@ -217,8 +216,13 @@ transactions directly.
 
 Set `SECRET_KEY` to a unique value of at least 32 characters before starting the app. The application fails closed when it is missing or too short.
 
+Set `MODEL_CACHE_DIR` to a persistent writable directory in production. The
+Sentence-BERT model is cached there and reused across restarts. Deployment
+platforms can use `/health` for liveness and `/ready` for database, service, and
+spaCy model readiness checks.
+
 For development, run `python app.py`; the development entry point uses `create_app()` with debug mode disabled. For production, install the runtime dependencies and run:
 
 ```bash
-gunicorn wsgi:app
+gunicorn --workers 1 --threads 4 --timeout 180 wsgi:app
 ```

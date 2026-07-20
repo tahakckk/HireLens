@@ -135,11 +135,12 @@ from text_utils import clean_text
 class NLPEngine:
 
     def __init__(self, sbert_model_name: str = 'paraphrase-multilingual-MiniLM-L12-v2',
-                 spacy_model_name: str = 'en_core_web_sm'):
+                 spacy_model_name: str = 'en_core_web_sm', model_cache_dir: str = None):
         self._sbert_model = None
         self._nlp = None
         self._sbert_model_name = sbert_model_name
         self._spacy_model_name = spacy_model_name
+        self._model_cache_dir = model_cache_dir
         self._skills_loaded = False
 
     @property
@@ -148,13 +149,20 @@ class NLPEngine:
         if self._sbert_model is None:
             print(f"[NLP Engine] SBERT modeli yükleniyor (Local-Only): {self._sbert_model_name}...")
             try:
-                self._sbert_model = SentenceTransformer(self._sbert_model_name, local_files_only=True)
+                self._sbert_model = SentenceTransformer(
+                    self._sbert_model_name,
+                    local_files_only=True,
+                    cache_folder=self._model_cache_dir,
+                )
             except Exception as e:
                 print(f"[NLP Engine] Yerel model bulunamadı veya yüklenemedi: {e}. Çevrimiçi deneniyor...")
                 try:
                     os.environ['TRANSFORMERS_OFFLINE'] = '0'
                     os.environ['HF_HUB_OFFLINE'] = '0'
-                    self._sbert_model = SentenceTransformer(self._sbert_model_name)
+                    self._sbert_model = SentenceTransformer(
+                        self._sbert_model_name,
+                        cache_folder=self._model_cache_dir,
+                    )
                     os.environ['TRANSFORMERS_OFFLINE'] = '1'
                     os.environ['HF_HUB_OFFLINE'] = '1'
                 except Exception as e2:
