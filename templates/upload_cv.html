@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}CV Yükle — AI Jobs Match{% endblock %}
+{% block title %}CV Yükle — HireLens{% endblock %}
 {% block page_title %}CV Yükle{% endblock %}
 
 {% block content %}
@@ -9,7 +9,7 @@
 <!-- Upload Area -->
 <div class="glass-card upload-section">
     <div class="card-header">
-        <h3><i data-feather="upload"></i> PDF CV Yükle</h3>
+        <h3><i data-feather="upload"></i> CV Yükle</h3>
         <span class="badge">Çoklu dosya desteklenir</span>
     </div>
     <div class="card-body">
@@ -19,9 +19,9 @@
                     <div class="drop-icon">📁</div>
                     <h3>CV dosyalarınızı buraya sürükleyin</h3>
                     <p>veya dosya seçmek için tıklayın</p>
-                    <span class="drop-hint">Sadece PDF formatı • Maksimum 16MB</span>
+                    <span class="drop-hint">PDF veya DOCX • Maksimum 16MB</span>
                 </div>
-                <input type="file" name="files" id="fileInput" multiple accept=".pdf" class="file-input">
+                <input type="file" name="files" id="fileInput" multiple accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="file-input">
             </div>
 
             <!-- Selected Files Preview -->
@@ -47,7 +47,7 @@
                 <div class="step-number">1</div>
                 <div class="step-info">
                     <strong>Metin Çıkarma</strong>
-                    <span>PDF'den metin otomatik extract edilir</span>
+                    <span>PDF veya DOCX'ten metin otomatik çıkarılır</span>
                 </div>
             </div>
             <div class="step">
@@ -101,7 +101,7 @@
                     </div>
                     <div class="cv-actions-top" style="display:flex; gap:8px;">
                         {% if cv['file_path'] %}
-                        <a href="{{ url_for('download_cv_file', cv_id=cv['id']) }}" class="btn-icon-only btn-ghost" title="PDF İndir" aria-label="PDF İndir"><i data-feather="download"></i></a>
+                        <a href="{{ url_for('download_cv_file', cv_id=cv['id']) }}" class="btn-icon-only btn-ghost" title="CV İndir" aria-label="CV İndir"><i data-feather="download"></i></a>
                         {% endif %}
                         <button class="btn-icon-only btn-danger-ghost" onclick="deleteCV('{{ cv.id }}')"
                                 title="CV'yi sil" aria-label="CV'yi sil">🗑️</button>
@@ -126,7 +126,7 @@
         <div class="empty-state">
             <span class="empty-icon"><i data-feather="inbox"></i></span>
             <p>Henüz CV yüklenmemiş</p>
-            <span class="empty-hint">Yukarıdaki alanı kullanarak PDF formatında CV yükleyin</span>
+            <span class="empty-hint">Yukarıdaki alanı kullanarak PDF veya DOCX formatında CV yükleyin</span>
         </div>
         {% endif %}
     </div>

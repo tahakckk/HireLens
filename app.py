@@ -3,6 +3,7 @@ import json
 import sqlite3
 import uuid
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, g, send_file, session
@@ -14,6 +15,7 @@ from nlp_engine import NLPEngine, clean_text
 from job_scraper import scrape_linkedin_job, parse_job_text, validate_linkedin_url
 from extractive_cv import ExtractiveCVGenerator
 
+Config.validate()
 app = Flask(__name__)
 app.config.from_object(Config)
 
@@ -209,6 +211,18 @@ def init_db():
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+
+def get_upload_path(stored_filename):
+    """Return a file path only when it points to a direct child of uploads."""
+    if not stored_filename:
+        return None
+
+    upload_dir = Path(app.config['UPLOAD_FOLDER']).resolve()
+    candidate = (upload_dir / stored_filename).resolve()
+    if candidate.parent != upload_dir:
+        return None
+    return candidate
 
 def embedding_to_bytes(embedding: np.ndarray) -> bytes:
 
@@ -431,8 +445,6 @@ def run_match(job_id):
         return redirect(url_for('upload_cv'))
 
     job_embedding = bytes_to_embedding(job['embedding'])
-    job_skills = json.loads(job['required_skills'])
-
     must_have_raw = job.get('must_have_skills') if hasattr(job, 'get') else job['must_have_skills']
     must_have_skills = json.loads(must_have_raw) if must_have_raw else []
 
@@ -519,6 +531,14 @@ def results(job_id):
 def delete_cv(cv_id):
 
     db = get_db()
+    cv = db.execute("SELECT file_path FROM cvs WHERE id = ?", (cv_id,)).fetchone()
+    if not cv:
+        return jsonify({'success': False, 'message': 'CV bulunamadı.'}), 404
+
+    filepath = get_upload_path(cv['file_path'])
+    if filepath and filepath.is_file():
+        filepath.unlink()
+
     db.execute("DELETE FROM matches WHERE cv_id = ?", (cv_id,))
     db.execute("DELETE FROM cvs WHERE id = ?", (cv_id,))
     db.commit()
@@ -542,13 +562,13 @@ def download_cv_file(cv_id):
         flash('Dosya bulunamadı veya eski bir CV olduğu için silinmiş.', 'error')
         return redirect(url_for('upload_cv'))
 
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], cv['file_path'])
-    if not os.path.exists(filepath):
+    filepath = get_upload_path(cv['file_path'])
+    if not filepath or not filepath.is_file():
         flash('Fiziksel dosya sunucuda bulunamadı.', 'error')
         return redirect(url_for('upload_cv'))
 
     from flask import send_from_directory
-    return send_from_directory(app.config['UPLOAD_FOLDER'], cv['file_path'], as_attachment=True, download_name=cv['filename'])
+    return send_from_directory(filepath.parent, filepath.name, as_attachment=True, download_name=cv['filename'])
 
 @app.route('/api/job-search/delete-session/<session_id>', methods=['DELETE'])
 def job_search_delete_session(session_id):
@@ -596,7 +616,7 @@ def job_search_upload_cv():
         return jsonify({'success': False, 'error': 'Dosya seçilmedi.'}), 400
 
     if not allowed_file(file.filename):
-        return jsonify({'success': False, 'error': 'Sadece PDF dosyaları desteklenmektedir.'}), 400
+        return jsonify({'success': False, 'error': 'Sadece PDF ve DOCX dosyaları desteklenmektedir.'}), 400
 
     try:
 
@@ -645,9 +665,6 @@ def job_search_upload_cv():
         }
 
     except Exception as e:
-        import traceback
-        print("UPLOAD CV ERROR:")
-        print(traceback.format_exc())
         return jsonify({'success': False, 'error': f'Hata: {str(e)}'}), 500
 
 @app.route('/api/job-search/parse-job', methods=['POST'])

@@ -162,11 +162,12 @@ python -m spacy download en_core_web_sm
 ## How to Run
 
 1. Make sure your virtual environment is active (shows `(venv)` in the terminal).
-2. Start the local server:
+2. Set a unique, random `SECRET_KEY` of at least 32 characters in the application environment. Do not commit this value.
+3. Start the local server:
    ```cmd
    python app.py
    ```
-3. You will see output similar to this:
+4. You will see output similar to this:
    ```
    ==================================================
      HireLens - Semantic Talent Matcher & ATS Engine
@@ -195,11 +196,11 @@ The SQLite schema initializes automatically on first startup. It contains the fo
 For academic evaluations, presentations, and code defenses, all long comments and complex developer docstrings have been stripped. In their place, **short Turkish annotations (prefixed with `# NOT:`)** have been added to the critical sections of the code. 
 
 These notes serve as personal presentation highlights, explaining:
-* How the **WAL (Write-Ahead Logging)** concurrency mode is enabled on the SQLite handle in [app.py](file:///c:/Users/yigit/Desktop/bittirme%20hoca%20dedin/app.py).
-* The **Crossing Index Gutter splitting logic** in [file_parser.py](file:///c:/Users/yigit/Desktop/bittirme%20hoca%20dedin/file_parser.py).
-* SBERT **embedding encoding** and **Cosine Similarity scaling** in [nlp_engine.py](file:///c:/Users/yigit/Desktop/bittirme%20hoca%20dedin/nlp_engine.py).
-* The **Scorecard 4.0 visual tax penalties** and **Must-Have coefficients** in [nlp_engine.py](file:///c:/Users/yigit/Desktop/bittirme%20hoca%20dedin/nlp_engine.py).
-* The **hallucination-free extractive sentence ranking weights** in [extractive_cv.py](file:///c:/Users/yigit/Desktop/bittirme%20hoca%20dedin/extractive_cv.py).
+* How the **WAL (Write-Ahead Logging)** concurrency mode is enabled on the SQLite handle in `app.py`.
+* The **Crossing Index Gutter splitting logic** in `file_parser.py`.
+* SBERT **embedding encoding** and **Cosine Similarity scaling** in `nlp_engine.py`.
+* The **Scorecard 4.0 visual tax penalties** and **Must-Have coefficients** in `nlp_engine.py`.
+* The **hallucination-free extractive sentence ranking weights** in `extractive_cv.py`.
 
 ---
 

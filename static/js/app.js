@@ -1,5 +1,5 @@
 /**
- * AI Jobs Match — Frontend JavaScript
+ * HireLens — Frontend JavaScript
  * Drag & drop, AJAX, animasyonlar ve interaktivite
  */
 
@@ -57,7 +57,8 @@ function initDropZone() {
         let hasValidFile = false;
 
         for (const file of files) {
-            const isPDF = file.name.toLowerCase().endsWith('.pdf');
+            const extension = file.name.toLowerCase().split('.').pop();
+            const isSupported = extension === 'pdf' || extension === 'docx';
             const sizeKB = (file.size / 1024).toFixed(1);
             const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
             const sizeStr = file.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
@@ -65,11 +66,11 @@ function initDropZone() {
             const item = document.createElement('div');
             item.className = 'file-item';
             item.innerHTML = `
-                <span class="file-item-name">${isPDF ? '📄' : '⚠️'} ${file.name}</span>
+                <span class="file-item-name">${isSupported ? '📄' : '⚠️'} ${file.name}</span>
                 <span class="file-item-size">${sizeStr}</span>
             `;
 
-            if (!isPDF) {
+            if (!isSupported) {
                 item.style.borderColor = 'rgba(239, 68, 68, 0.3)';
                 item.style.background = 'rgba(239, 68, 68, 0.05)';
             } else {

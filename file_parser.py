@@ -25,7 +25,7 @@ def extract_text_from_pdf(file_path: str):
         is_low_text = False
         total_chars = 0
 
-        for page_num, page in enumerate(doc):
+        for page in doc:
 
             blocks = page.get_text("blocks", sort=True)
             page_width = page.rect.width
