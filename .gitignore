@@ -40,6 +40,7 @@ database.db
 # Application Uploads
 uploads/*
 !uploads/.gitkeep
+.model-cache/
 
 # Environments & Secrets
 .env

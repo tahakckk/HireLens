@@ -3,6 +3,14 @@
 from database import get_db
 
 
+class SystemRepository:
+    def __init__(self, connection=None):
+        self.db = connection or get_db()
+
+    def ping(self):
+        return self.db.execute("SELECT 1").fetchone()[0] == 1
+
+
 class RecruiterRepository:
     def __init__(self, connection=None):
         self.db = connection or get_db()

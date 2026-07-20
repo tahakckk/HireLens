@@ -55,8 +55,9 @@ def test_default_factory_fails_closed_without_secret(monkeypatch):
 
 
 def test_blueprints_and_public_routes_are_registered(app):
-    assert {"recruiter", "job_search"} <= set(app.blueprints)
+    assert {"health", "recruiter", "job_search"} <= set(app.blueprints)
     expected = {
+        "/health": {"GET"}, "/ready": {"GET"},
         "/": {"GET"}, "/upload-cv": {"GET", "POST"},
         "/job-analysis": {"GET", "POST"}, "/match/<job_id>": {"POST"},
         "/results/<job_id>": {"GET"}, "/api/delete-cv/<cv_id>": {"DELETE"},
@@ -69,6 +70,28 @@ def test_blueprints_and_public_routes_are_registered(app):
     }
     actual = {rule.rule: rule.methods - {"HEAD", "OPTIONS"} for rule in app.url_map.iter_rules()}
     assert expected.items() <= actual.items()
+
+
+def test_health_and_readiness_endpoints(app, monkeypatch):
+    monkeypatch.setattr("routes.health.find_spec", lambda _name: object())
+
+    health = app.test_client().get("/health")
+    ready = app.test_client().get("/ready")
+
+    assert health.status_code == 200
+    assert health.get_json() == {"status": "ok"}
+    assert ready.status_code == 200
+    assert ready.get_json()["status"] == "ready"
+    assert all(ready.get_json()["checks"].values())
+
+
+def test_readiness_reports_missing_spacy_model(app, monkeypatch):
+    monkeypatch.setattr("routes.health.find_spec", lambda _name: None)
+
+    response = app.test_client().get("/ready")
+
+    assert response.status_code == 503
+    assert response.get_json()["checks"]["spacy_model"] is False
 
 
 @pytest.mark.parametrize("url, nav_id", [
