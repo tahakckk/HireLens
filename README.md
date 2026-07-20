@@ -196,7 +196,7 @@ The SQLite schema initializes automatically on first startup. It contains the fo
 For academic evaluations, presentations, and code defenses, all long comments and complex developer docstrings have been stripped. In their place, **short Turkish annotations (prefixed with `# NOT:`)** have been added to the critical sections of the code. 
 
 These notes serve as personal presentation highlights, explaining:
-* How the **WAL (Write-Ahead Logging)** concurrency mode is enabled on the SQLite handle in `app.py`.
+* How the **WAL (Write-Ahead Logging)** concurrency mode is enabled on the SQLite handle in `database.py`.
 * The **Crossing Index Gutter splitting logic** in `file_parser.py`.
 * SBERT **embedding encoding** and **Cosine Similarity scaling** in `nlp_engine.py`.
 * The **Scorecard 4.0 visual tax penalties** and **Must-Have coefficients** in `nlp_engine.py`.
@@ -220,7 +220,7 @@ python app.py
 Run the automated checks without downloading NLP models; the factory accepts injected model services in tests:
 
 ```bash
-ruff check app.py database.py services.py tests/test_architecture.py
+ruff check .
 pytest -q
 ```
 

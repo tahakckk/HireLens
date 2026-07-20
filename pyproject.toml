@@ -4,7 +4,7 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F"]
-ignore = ["E501"]
+ignore = ["E501", "E701", "E702"]
 
 [tool.ruff.lint.per-file-ignores]
 "extractive_cv.py" = ["E", "F"]

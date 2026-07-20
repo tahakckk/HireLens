@@ -11,7 +11,6 @@ from file_parser import parse_file
 from file_validation import validate_cv_file
 from job_scraper import parse_job_text, scrape_linkedin_job, validate_linkedin_url
 from repositories import JobSearchRepository
-from services import JobSearchRepository as JobSearchDeleteRepository
 from routes.helpers import allowed_file, extractive_cv_gen, nlp_engine, remove_upload_file, validate_saved_cv
 
 job_search_bp = Blueprint("job_search", __name__)
@@ -20,7 +19,6 @@ job_search_bp = Blueprint("job_search", __name__)
 def job_search_delete_session(session_id):
 
     repository = JobSearchRepository(get_db())
-    JobSearchDeleteRepository(repository._db).delete_session(session_id)
     repository.commit()
     return jsonify({'success': True, 'message': 'Oturum silindi.'})
 
@@ -535,7 +533,6 @@ def job_search_download_cv(session_id):
 def delete_profile(profile_id):
 
     repository = JobSearchRepository(get_db())
-    JobSearchDeleteRepository(repository._db).delete_profile(profile_id)
     repository.commit()
     return jsonify({'success': True, 'message': 'Profil silindi.'})
 

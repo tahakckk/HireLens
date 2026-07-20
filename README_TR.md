@@ -219,7 +219,7 @@ python app.py
 Testler NLP modellerini indirmek zorunda değildir; application factory testlerde enjekte edilen sahte servisleri kabul eder:
 
 ```bash
-ruff check app.py database.py services.py tests/test_architecture.py
+ruff check .
 pytest -q
 ```
 

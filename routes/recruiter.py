@@ -1,4 +1,5 @@
 import json
+import os
 import sqlite3
 import uuid
 from datetime import datetime
@@ -11,7 +12,6 @@ from database import get_db
 from file_parser import parse_file
 from job_scraper import scrape_linkedin_job, validate_linkedin_url
 from repositories import RecruiterRepository
-from services import JobRepository
 from services import delete_cv_transaction
 from routes.helpers import allowed_file, embedding_to_bytes, get_upload_path, nlp_engine, remove_upload_file, validate_saved_cv
 from nlp_engine import clean_text
@@ -22,17 +22,10 @@ recruiter_bp = Blueprint("recruiter", __name__)
 def index():
 
     repository = RecruiterRepository(get_db())
-    cv_count = repository.execute("SELECT COUNT(*) FROM cvs").fetchone()[0]
-    job_count = repository.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
-    match_count = repository.execute("SELECT COUNT(DISTINCT job_id) FROM matches").fetchone()[0]
-
-    recent_cvs = repository.execute(
-        "SELECT id, filename, extracted_skills, uploaded_at FROM cvs ORDER BY uploaded_at DESC LIMIT 5"
-    ).fetchall()
-
-    recent_jobs = repository.execute(
-        "SELECT id, title, required_skills, created_at FROM jobs ORDER BY created_at DESC LIMIT 5"
-    ).fetchall()
+    stats = repository.dashboard_stats()
+    cv_count, job_count, match_count = stats['cv_count'], stats['job_count'], stats['match_count']
+    recent_cvs = repository.recent_cvs()
+    recent_jobs = repository.recent_jobs()
 
     return render_template('index.html',
                            cv_count=cv_count,
@@ -124,9 +117,7 @@ def upload_cv():
         return redirect(url_for('recruiter.upload_cv'))
 
     repository = RecruiterRepository(get_db())
-    cvs = repository.execute(
-        "SELECT id, filename, file_path, extracted_skills, uploaded_at, experience_months FROM cvs ORDER BY uploaded_at DESC"
-    ).fetchall()
+    cvs = repository.list_cvs()
 
     return render_template('upload_cv.html', cvs=cvs)
 
@@ -217,9 +208,7 @@ def job_analysis():
             return redirect(request.url)
 
     repository = RecruiterRepository(get_db())
-    jobs = repository.execute(
-        "SELECT id, title, required_skills, must_have_skills, description, created_at FROM jobs ORDER BY created_at DESC"
-    ).fetchall()
+    jobs = repository.list_jobs()
 
     return render_template('job_analysis.html', jobs=jobs)
 
@@ -228,12 +217,12 @@ def run_match(job_id):
 
     repository = RecruiterRepository(get_db())
 
-    job = repository.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    job = repository.find_job(job_id)
     if not job:
         flash('İş ilanı bulunamadı.', 'error')
         return redirect(url_for('recruiter.job_analysis'))
 
-    cvs = repository.execute("SELECT * FROM cvs").fetchall()
+    cvs = repository.list_cvs_for_matching()
     if not cvs:
         flash('Henüz yüklenmiş CV bulunmuyor. Önce CV yükleyin.', 'error')
         return redirect(url_for('recruiter.upload_cv'))
@@ -306,7 +295,7 @@ def results(job_id):
 
     repository = RecruiterRepository(get_db())
 
-    job = repository.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    job = repository.find_job(job_id)
     if not job:
         flash('İş ilanı bulunamadı.', 'error')
         return redirect(url_for('recruiter.index'))
@@ -341,7 +330,7 @@ def delete_cv(cv_id):
 def delete_job(job_id):
 
     repository = RecruiterRepository(get_db())
-    JobRepository(repository._db).delete_with_matches(job_id)
+    repository.delete_job(job_id)
     repository.commit()
     return jsonify({'success': True, 'message': 'İş ilanı silindi.'})
 
@@ -349,7 +338,7 @@ def delete_job(job_id):
 def download_cv_file(cv_id):
 
     repository = RecruiterRepository(get_db())
-    cv = repository.execute("SELECT file_path, filename FROM cvs WHERE id = ?", (cv_id,)).fetchone()
+    cv = repository.find_cv_file(cv_id)
     if not cv or not cv['file_path']:
         flash('Dosya bulunamadı veya eski bir CV olduğu için silinmiş.', 'error')
         return redirect(url_for('recruiter.upload_cv'))
@@ -367,11 +356,7 @@ def download_cv_file(cv_id):
 def api_stats():
 
     repository = RecruiterRepository(get_db())
-    return jsonify({
-        'cv_count': repository.execute("SELECT COUNT(*) FROM cvs").fetchone()[0],
-        'job_count': repository.execute("SELECT COUNT(*) FROM jobs").fetchone()[0],
-        'match_count': repository.execute("SELECT COUNT(DISTINCT job_id) FROM matches").fetchone()[0],
-    })
+    return jsonify(repository.dashboard_stats())
 
 
 @recruiter_bp.app_template_filter('parse_json')
