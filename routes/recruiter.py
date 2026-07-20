@@ -1,6 +1,5 @@
 import json
 import os
-import sqlite3
 import uuid
 
 import numpy as np
@@ -10,11 +9,12 @@ from pathlib import Path
 from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.utils import secure_filename
 
-from database import get_db
 from file_parser import parse_file
 from job_scraper import scrape_linkedin_job, validate_linkedin_url
+from repositories import RecruiterRepository
 from text_utils import clean_text
 from routes.helpers import allowed_file, get_upload_path, remove_upload_file, validate_saved_cv
+from services import delete_cv_with_file
 
 recruiter_bp = Blueprint("recruiter", __name__)
 
@@ -24,26 +24,14 @@ def embedding_to_bytes(embedding: np.ndarray) -> bytes:
 
 @recruiter_bp.route('/')
 def index():
-
-    db = get_db()
-    cv_count = db.execute("SELECT COUNT(*) FROM cvs").fetchone()[0]
-    job_count = db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
-    match_count = db.execute("SELECT COUNT(DISTINCT job_id) FROM matches").fetchone()[0]
-
-    recent_cvs = db.execute(
-        "SELECT id, filename, extracted_skills, uploaded_at FROM cvs ORDER BY uploaded_at DESC LIMIT 5"
-    ).fetchall()
-
-    recent_jobs = db.execute(
-        "SELECT id, title, required_skills, created_at FROM jobs ORDER BY created_at DESC LIMIT 5"
-    ).fetchall()
+    dashboard = RecruiterRepository().dashboard()
 
     return render_template('index.html',
-                           cv_count=cv_count,
-                           job_count=job_count,
-                           match_count=match_count,
-                           recent_cvs=recent_cvs,
-                           recent_jobs=recent_jobs)
+                           cv_count=dashboard['cv_count'],
+                           job_count=dashboard['job_count'],
+                           match_count=dashboard['match_count'],
+                           recent_cvs=dashboard['recent_cvs'],
+                           recent_jobs=dashboard['recent_jobs'])
 
 @recruiter_bp.route('/upload-cv', methods=['GET', 'POST'])
 def upload_cv():
@@ -96,21 +84,20 @@ def upload_cv():
                 embedding = current_app.extensions["nlp_engine"].encode_text(raw_text)
 
                 cv_id = str(uuid.uuid4())
-                db = get_db()
-                db.execute(
-                    """INSERT INTO cvs (id, filename, file_path, original_text, cleaned_text,
-                       extracted_skills, timeline, experience_months, skill_recency, metadata, embedding, uploaded_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (cv_id, filename, unique_name, raw_text, cleaned,
-                     json.dumps(extracted_info.get('skills', [])),
-                     json.dumps(extracted_info.get('timeline', [])),
-                     extracted_info.get('total_experience_months', 0),
-                     json.dumps(extracted_info.get('skill_recency', {})),
-                     json.dumps({'warnings': warnings}),
-                     embedding_to_bytes(embedding),
-                     datetime.now().isoformat())
-                )
-                db.commit()
+                RecruiterRepository().create_cv({
+                    'id': cv_id,
+                    'filename': filename,
+                    'file_path': unique_name,
+                    'original_text': raw_text,
+                    'cleaned_text': cleaned,
+                    'extracted_skills': json.dumps(extracted_info.get('skills', [])),
+                    'timeline': json.dumps(extracted_info.get('timeline', [])),
+                    'experience_months': extracted_info.get('total_experience_months', 0),
+                    'skill_recency': json.dumps(extracted_info.get('skill_recency', {})),
+                    'metadata': json.dumps({'warnings': warnings}),
+                    'embedding': embedding_to_bytes(embedding),
+                    'uploaded_at': datetime.now().isoformat(),
+                })
 
                 uploaded_count += 1
 
@@ -127,10 +114,7 @@ def upload_cv():
 
         return redirect(url_for('recruiter.upload_cv'))
 
-    db = get_db()
-    cvs = db.execute(
-        "SELECT id, filename, file_path, extracted_skills, uploaded_at, experience_months FROM cvs ORDER BY uploaded_at DESC"
-    ).fetchall()
+    cvs = RecruiterRepository().list_cvs()
 
     return render_template('upload_cv.html', cvs=cvs)
 
@@ -189,20 +173,17 @@ def job_analysis():
             embedding = current_app.extensions["nlp_engine"].encode_text(description)
 
             job_id = str(uuid.uuid4())
-            db = get_db()
-            db.execute(
-                """INSERT INTO jobs (id, title, description, cleaned_description,
-                   required_skills, must_have_skills, nice_to_have_skills,
-                   embedding, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (job_id, title, description, cleaned_desc,
-                 json.dumps(extracted_skills),
-                 json.dumps(must_have),
-                 json.dumps(nice_to_have),
-                 embedding_to_bytes(embedding),
-                 datetime.now().isoformat())
-            )
-            db.commit()
+            RecruiterRepository().create_job({
+                'id': job_id,
+                'title': title,
+                'description': description,
+                'cleaned_description': cleaned_desc,
+                'required_skills': json.dumps(extracted_skills),
+                'must_have_skills': json.dumps(must_have),
+                'nice_to_have_skills': json.dumps(nice_to_have),
+                'embedding': embedding_to_bytes(embedding),
+                'created_at': datetime.now().isoformat(),
+            })
 
             must_count = len(must_have)
             nice_count = len(nice_to_have)
@@ -220,29 +201,25 @@ def job_analysis():
             flash('İş ilanı analiz edilemedi. Lütfen tekrar deneyin.', 'error')
             return redirect(request.url)
 
-    db = get_db()
-    jobs = db.execute(
-        "SELECT id, title, required_skills, must_have_skills, description, created_at FROM jobs ORDER BY created_at DESC"
-    ).fetchall()
+    jobs = RecruiterRepository().list_jobs()
 
     return render_template('job_analysis.html', jobs=jobs)
 
 @recruiter_bp.route('/match/<job_id>', methods=['POST'])
 def run_match(job_id):
 
-    db = get_db()
-
-    job = db.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    repository = RecruiterRepository()
+    job = repository.find_job(job_id)
     if not job:
         flash('İş ilanı bulunamadı.', 'error')
         return redirect(url_for('recruiter.job_analysis'))
 
-    cvs = db.execute("SELECT * FROM cvs").fetchall()
+    cvs = repository.list_all_cvs()
     if not cvs:
         flash('Henüz yüklenmiş CV bulunmuyor. Önce CV yükleyin.', 'error')
         return redirect(url_for('recruiter.upload_cv'))
 
-    db.execute("DELETE FROM matches WHERE job_id = ?", (job_id,))
+    matches = []
 
     for cv_row in cvs:
 
@@ -262,122 +239,64 @@ def run_match(job_id):
         gap = current_app.extensions["nlp_engine"].semantic_gap_analysis(job_skills, cv_skills)
 
         match_id = str(uuid.uuid4())
-        db.execute(
-            """INSERT INTO matches (
-                id, job_id, cv_id, match_score, matching_skills,
-                semantic_matches, missing_skills, extra_skills,
-                timeline_gaps, experience_score, coverage_percent,
-                text_similarity, format_score, keyword_score,
-                section_score, language_match, missing_must_haves,
-                sections_found, cv_lang, job_lang, title_match_bonus,
-                is_disqualified, penalty_applied, is_pretty_resume, detail_metrics
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                match_id, job_id, cv['id'], ats_result['final_score'],
-                json.dumps(gap['exact_matches']),
-                json.dumps(gap['semantic_matches']),
-                json.dumps(gap['missing_skills']),
-                json.dumps(gap['extra_skills']),
-                json.dumps(cv.get('gaps_detected', [])),
-                0,
-                gap['coverage_percent'],
-                0,
-                ats_result['format_score'],
-                ats_result['keyword_score'],
-                ats_result['section_score'],
-                1 if ats_result['language_match'] else 0,
-                json.dumps(ats_result['missing_must_haves']),
-                json.dumps(ats_result['sections_found']),
-                ats_result['cv_lang'],
-                ats_result['job_lang'],
-                ats_result['title_match_bonus'],
-                ats_result['is_disqualified'],
-                ats_result['penalty_applied'],
-                ats_result['is_pretty_resume'],
-                json.dumps(ats_result['detail_metrics'])
-            )
-        )
+        matches.append({
+            'id': match_id, 'job_id': job_id, 'cv_id': cv['id'],
+            'match_score': ats_result['final_score'],
+            'matching_skills': json.dumps(gap['exact_matches']),
+            'semantic_matches': json.dumps(gap['semantic_matches']),
+            'missing_skills': json.dumps(gap['missing_skills']),
+            'extra_skills': json.dumps(gap['extra_skills']),
+            'timeline_gaps': json.dumps(cv.get('gaps_detected', [])),
+            'experience_score': 0, 'coverage_percent': gap['coverage_percent'],
+            'text_similarity': 0, 'format_score': ats_result['format_score'],
+            'keyword_score': ats_result['keyword_score'],
+            'section_score': ats_result['section_score'],
+            'language_match': 1 if ats_result['language_match'] else 0,
+            'missing_must_haves': json.dumps(ats_result['missing_must_haves']),
+            'sections_found': json.dumps(ats_result['sections_found']),
+            'cv_lang': ats_result['cv_lang'], 'job_lang': ats_result['job_lang'],
+            'title_match_bonus': ats_result['title_match_bonus'],
+            'is_disqualified': ats_result['is_disqualified'],
+            'penalty_applied': ats_result['penalty_applied'],
+            'is_pretty_resume': ats_result['is_pretty_resume'],
+            'detail_metrics': json.dumps(ats_result['detail_metrics']),
+        })
 
-    db.commit()
+    repository.replace_matches(job_id, matches)
     return redirect(url_for('recruiter.results', job_id=job_id))
 
 @recruiter_bp.route('/results/<job_id>')
 def results(job_id):
 
-    db = get_db()
-
-    job = db.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    repository = RecruiterRepository()
+    job = repository.find_job(job_id)
     if not job:
         flash('İş ilanı bulunamadı.', 'error')
         return redirect(url_for('recruiter.index'))
 
-    matches = db.execute("""
-        SELECT m.*, c.filename, c.extracted_skills as cv_skills, c.experience_months
-        FROM matches m
-        JOIN cvs c ON m.cv_id = c.id
-        WHERE m.job_id = ?
-        ORDER BY m.is_disqualified ASC, m.match_score DESC
-    """, (job_id,)).fetchall()
+    matches = repository.list_matches_for_job(job_id)
 
     return render_template('results.html', job=job, matches=matches)
 
 @recruiter_bp.route('/api/delete-cv/<cv_id>', methods=['DELETE'])
 def delete_cv(cv_id):
-
-    db = get_db()
-    cv = db.execute("SELECT file_path FROM cvs WHERE id = ?", (cv_id,)).fetchone()
-    if not cv:
-        return jsonify({'success': False, 'message': 'CV bulunamadı.'}), 404
-
-    filepath = get_upload_path(cv['file_path'])
-    staged_path = None
-    try:
-        db.execute('BEGIN')
-        db.execute("DELETE FROM matches WHERE cv_id = ?", (cv_id,))
-        db.execute("DELETE FROM cvs WHERE id = ?", (cv_id,))
-
-        if filepath and filepath.is_file():
-            staged_path = filepath.with_name(f'.deleting-{uuid.uuid4().hex}-{filepath.name}')
-            filepath.replace(staged_path)
-
-        db.commit()
-    except (OSError, sqlite3.Error):
-        db.rollback()
-        if staged_path and staged_path.exists():
-            try:
-                staged_path.replace(filepath)
-            except OSError:
-                current_app.logger.exception('Unable to restore CV file after database deletion failure')
-        current_app.logger.exception('CV deletion failed')
-        return jsonify({'success': False, 'message': 'CV silinemedi. Lütfen tekrar deneyin.'}), 500
-
-    if staged_path:
-        try:
-            staged_path.unlink()
-        except OSError:
-            current_app.logger.exception('CV database records deleted but staged file cleanup failed')
-            return jsonify({
-                'success': True,
-                'message': 'CV silindi; dosya temizliği başarısız oldu. Sistem yöneticisine başvurun.',
-                'cleanup_pending': True,
-            })
-
-    return jsonify({'success': True, 'message': 'CV silindi.'})
+    payload, status = delete_cv_with_file(
+        cv_id,
+        resolve_upload_path=get_upload_path,
+        logger=current_app.logger,
+    )
+    return jsonify(payload), status
 
 @recruiter_bp.route('/api/delete-job/<job_id>', methods=['DELETE'])
 def delete_job(job_id):
 
-    db = get_db()
-    db.execute("DELETE FROM matches WHERE job_id = ?", (job_id,))
-    db.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
-    db.commit()
+    RecruiterRepository().delete_job(job_id)
     return jsonify({'success': True, 'message': 'İş ilanı silindi.'})
 
 @recruiter_bp.route('/download_cv/<cv_id>')
 def download_cv_file(cv_id):
 
-    db = get_db()
-    cv = db.execute("SELECT file_path, filename FROM cvs WHERE id = ?", (cv_id,)).fetchone()
+    cv = RecruiterRepository().find_cv_file(cv_id)
     if not cv or not cv['file_path']:
         flash('Dosya bulunamadı veya eski bir CV olduğu için silinmiş.', 'error')
         return redirect(url_for('recruiter.upload_cv'))
@@ -393,12 +312,7 @@ def download_cv_file(cv_id):
 @recruiter_bp.route('/api/stats')
 def api_stats():
 
-    db = get_db()
-    return jsonify({
-        'cv_count': db.execute("SELECT COUNT(*) FROM cvs").fetchone()[0],
-        'job_count': db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0],
-        'match_count': db.execute("SELECT COUNT(DISTINCT job_id) FROM matches").fetchone()[0],
-    })
+    return jsonify(RecruiterRepository().stats())
 
 @recruiter_bp.app_template_filter('parse_json')
 def parse_json_filter(value):

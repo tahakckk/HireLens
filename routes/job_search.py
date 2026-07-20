@@ -7,9 +7,9 @@ from pathlib import Path
 from flask import Blueprint, current_app, jsonify, render_template, request, send_file
 from werkzeug.utils import secure_filename
 
-from database import get_db
 from file_parser import parse_file
 from job_scraper import parse_job_text, scrape_linkedin_job, validate_linkedin_url
+from repositories import JobSearchRepository
 from routes.helpers import allowed_file, remove_upload_file, validate_saved_cv
 
 job_search_bp = Blueprint("job_search", __name__)
@@ -17,18 +17,9 @@ job_search_bp = Blueprint("job_search", __name__)
 @job_search_bp.route('/job-search')
 def job_search():
 
-    db = get_db()
-
-    profiles = db.execute(
-        "SELECT id, original_filename, extracted_skills, created_at FROM user_profiles ORDER BY created_at DESC"
-    ).fetchall()
-
-    sessions = db.execute("""
-        SELECT s.*, p.original_filename
-        FROM job_search_sessions s
-        JOIN user_profiles p ON s.profile_id = p.id
-        ORDER BY s.created_at DESC LIMIT 10
-    """).fetchall()
+    repository = JobSearchRepository()
+    profiles = repository.list_profiles()
+    sessions = repository.list_recent_sessions()
     return render_template('job_search.html', profiles=profiles, sessions=sessions)
 
 @job_search_bp.route('/api/job-search/upload-cv', methods=['POST'])
@@ -72,17 +63,14 @@ def job_search_upload_cv():
         skills = current_app.extensions["nlp_engine"].extract_skills(raw_text)
 
         profile_id = str(uuid.uuid4())
-        db = get_db()
-        db.execute(
-            """INSERT INTO user_profiles (id, original_filename, original_text,
-               profile_data, extracted_skills, created_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (profile_id, filename, raw_text,
-             json.dumps(profile_data, ensure_ascii=False),
-             json.dumps(skills),
-             datetime.now().isoformat())
-        )
-        db.commit()
+        JobSearchRepository().create_profile({
+            'id': profile_id,
+            'original_filename': filename,
+            'original_text': raw_text,
+            'profile_data': json.dumps(profile_data, ensure_ascii=False),
+            'extracted_skills': json.dumps(skills),
+            'created_at': datetime.now().isoformat(),
+        })
 
         remove_upload_file(Path(filepath))
 
@@ -147,8 +135,8 @@ def job_search_generate_cv():
     if not job_data:
         return jsonify({'success': False, 'error': 'İlan bilgileri gerekli.'}), 400
 
-    db = get_db()
-    profile = db.execute("SELECT * FROM user_profiles WHERE id = ?", (profile_id,)).fetchone()
+    repository = JobSearchRepository()
+    profile = repository.find_profile(profile_id)
     if not profile:
         return jsonify({'success': False, 'error': 'Profil bulunamadı.'}), 404
 
@@ -164,18 +152,15 @@ def job_search_generate_cv():
         }), 500
 
     session_id = str(uuid.uuid4())
-    db.execute(
-        """INSERT INTO job_search_sessions (id, profile_id, job_url, job_data,
-           optimized_cv, status, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        (session_id, profile_id,
-         job_data.get('url', ''),
-         json.dumps(job_data, ensure_ascii=False),
-         json.dumps(optimized_cv_data, ensure_ascii=False),
-         'completed',
-         datetime.now().isoformat())
-    )
-    db.commit()
+    repository.create_session({
+        'id': session_id,
+        'profile_id': profile_id,
+        'job_url': job_data.get('url', ''),
+        'job_data': json.dumps(job_data, ensure_ascii=False),
+        'optimized_cv': json.dumps(optimized_cv_data, ensure_ascii=False),
+        'status': 'completed',
+        'created_at': datetime.now().isoformat(),
+    })
 
     return jsonify({
         'success': True,
@@ -303,8 +288,7 @@ def job_search_download_cv(session_id):
 
     file_format = request.args.get('format', 'pdf').lower()
 
-    db = get_db()
-    session = db.execute("SELECT * FROM job_search_sessions WHERE id = ?", (session_id,)).fetchone()
+    session = JobSearchRepository().find_session(session_id)
     if not session:
         return jsonify({'success': False, 'error': 'Oturum bulunamadı.'}), 404
 
@@ -320,13 +304,6 @@ def job_search_download_cv(session_id):
             download_name=f"{safe_name}.docx",
             mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         )
-
-    db = get_db()
-    session = db.execute("SELECT * FROM job_search_sessions WHERE id = ?", (session_id,)).fetchone()
-    if not session:
-        return jsonify({'success': False, 'error': 'Oturum bulunamadı.'}), 404
-
-    cv_data = json.loads(session['optimized_cv'])
 
     from io import BytesIO
     from reportlab.lib.pagesizes import A4
@@ -526,17 +503,12 @@ def job_search_download_cv(session_id):
 @job_search_bp.route('/api/job-search/delete-profile/<profile_id>', methods=['DELETE'])
 def delete_profile(profile_id):
 
-    db = get_db()
-    db.execute("DELETE FROM job_search_sessions WHERE profile_id = ?", (profile_id,))
-    db.execute("DELETE FROM user_profiles WHERE id = ?", (profile_id,))
-    db.commit()
+    JobSearchRepository().delete_profile(profile_id)
     return jsonify({'success': True, 'message': 'Profil silindi.'})
 
 
 
 @job_search_bp.route('/api/job-search/delete-session/<session_id>', methods=['DELETE'])
 def job_search_delete_session(session_id):
-    db = get_db()
-    db.execute("DELETE FROM job_search_sessions WHERE id = ?", (session_id,))
-    db.commit()
+    JobSearchRepository().delete_session(session_id)
     return jsonify({'success': True, 'message': 'Oturum silindi.'})
