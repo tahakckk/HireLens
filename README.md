@@ -162,7 +162,7 @@ python -m spacy download en_core_web_sm
 ## How to Run
 
 1. Make sure your virtual environment is active (shows `(venv)` in the terminal).
-2. Set a unique, random `SECRET_KEY` of at least 32 characters in the application environment. Do not commit this value.
+2. Set a unique, random `SECRET_KEY` of at least 32 characters in the application environment before starting the server. `.env.example` documents the required variable, but `python app.py` does not load `.env` automatically; do not commit a real secret.
 3. Start the local server:
    ```cmd
    python app.py

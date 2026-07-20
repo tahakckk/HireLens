@@ -161,7 +161,7 @@ python -m spacy download en_core_web_sm
 ## Çalıştırma Yönergesi
 
 1. Sanal ortamınızın aktif olduğundan emin olun (satırın başında `(venv)` yazmalıdır).
-2. Uygulama ortamında en az 32 karakterlik, benzersiz ve rastgele bir `SECRET_KEY` tanımlayın. Bu değeri repoya eklemeyin.
+2. Sunucuyu başlatmadan önce uygulama ortamında en az 32 karakterlik, benzersiz ve rastgele bir `SECRET_KEY` tanımlayın. `.env.example` gerekli değişkeni belgeler; `python app.py`, `.env` dosyasını otomatik yüklemez. Gerçek bir secret'ı repoya eklemeyin.
 3. Uygulamayı başlatın:
    ```cmd
    python app.py

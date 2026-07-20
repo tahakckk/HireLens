@@ -64,11 +64,14 @@ function initDropZone() {
             const sizeStr = file.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
 
             const item = document.createElement('div');
+            const name = document.createElement('span');
+            const size = document.createElement('span');
             item.className = 'file-item';
-            item.innerHTML = `
-                <span class="file-item-name">${isSupported ? '📄' : '⚠️'} ${file.name}</span>
-                <span class="file-item-size">${sizeStr}</span>
-            `;
+            name.className = 'file-item-name';
+            size.className = 'file-item-size';
+            name.textContent = `${isSupported ? '📄' : '⚠️'} ${file.name}`;
+            size.textContent = sizeStr;
+            item.append(name, size);
 
             if (!isSupported) {
                 item.style.borderColor = 'rgba(239, 68, 68, 0.3)';

@@ -11,6 +11,7 @@ from werkzeug.utils import secure_filename
 
 from config import Config
 from file_parser import parse_file
+from file_validation import validate_cv_file
 from nlp_engine import NLPEngine, clean_text
 from job_scraper import scrape_linkedin_job, parse_job_text, validate_linkedin_url
 from extractive_cv import ExtractiveCVGenerator
@@ -224,6 +225,28 @@ def get_upload_path(stored_filename):
         return None
     return candidate
 
+
+def remove_upload_file(filepath):
+    """Delete a temporary upload without exposing filesystem errors to users."""
+    try:
+        if filepath and filepath.is_file():
+            filepath.unlink()
+    except OSError:
+        app.logger.exception('Unable to remove temporary uploaded CV file')
+
+
+def validate_saved_cv(filepath):
+    """Validate file content after saving it, then clean up invalid uploads."""
+    try:
+        is_valid = validate_cv_file(str(filepath))
+    except OSError:
+        app.logger.exception('Unable to validate uploaded CV file')
+        is_valid = False
+
+    if not is_valid:
+        remove_upload_file(filepath)
+    return is_valid
+
 def embedding_to_bytes(embedding: np.ndarray) -> bytes:
 
     return embedding.tobytes()
@@ -268,6 +291,7 @@ def upload_cv():
         errors = []
 
         for file in files:
+            filepath = None
             if file.filename == '':
                 continue
 
@@ -282,13 +306,17 @@ def upload_cv():
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
                 file.save(filepath)
 
+                if not validate_saved_cv(Path(filepath)):
+                    errors.append(f"'{filename}' — dosya içeriği geçersiz veya desteklenmiyor.")
+                    continue
+
                 parse_result = parse_file(filepath)
                 raw_text = parse_result['text']
                 warnings = parse_result['warnings']
 
                 if not raw_text or len(raw_text.strip()) < 50:
                     errors.append(f"'{filename}' — PDF/DOCX'den yeterli metin çıkarılamadı.")
-                    os.remove(filepath)
+                    remove_upload_file(Path(filepath))
                     continue
 
                 if warnings:
@@ -319,8 +347,10 @@ def upload_cv():
 
                 uploaded_count += 1
 
-            except Exception as e:
-                errors.append(f"'{file.filename}' — Hata: {str(e)}")
+            except Exception:
+                app.logger.exception('CV upload failed')
+                remove_upload_file(Path(filepath) if filepath else None)
+                errors.append(f"'{file.filename}' — CV işlenemedi. Lütfen geçerli bir PDF veya DOCX deneyin.")
 
         if uploaded_count > 0:
             flash(f'{uploaded_count} CV başarıyla yüklendi ve analiz edildi!', 'success')
@@ -536,12 +566,38 @@ def delete_cv(cv_id):
         return jsonify({'success': False, 'message': 'CV bulunamadı.'}), 404
 
     filepath = get_upload_path(cv['file_path'])
-    if filepath and filepath.is_file():
-        filepath.unlink()
+    staged_path = None
+    try:
+        db.execute('BEGIN')
+        db.execute("DELETE FROM matches WHERE cv_id = ?", (cv_id,))
+        db.execute("DELETE FROM cvs WHERE id = ?", (cv_id,))
 
-    db.execute("DELETE FROM matches WHERE cv_id = ?", (cv_id,))
-    db.execute("DELETE FROM cvs WHERE id = ?", (cv_id,))
-    db.commit()
+        if filepath and filepath.is_file():
+            staged_path = filepath.with_name(f'.deleting-{uuid.uuid4().hex}-{filepath.name}')
+            filepath.replace(staged_path)
+
+        db.commit()
+    except (OSError, sqlite3.Error):
+        db.rollback()
+        if staged_path and staged_path.exists():
+            try:
+                staged_path.replace(filepath)
+            except OSError:
+                app.logger.exception('Unable to restore CV file after database deletion failure')
+        app.logger.exception('CV deletion failed')
+        return jsonify({'success': False, 'message': 'CV silinemedi. Lütfen tekrar deneyin.'}), 500
+
+    if staged_path:
+        try:
+            staged_path.unlink()
+        except OSError:
+            app.logger.exception('CV database records deleted but staged file cleanup failed')
+            return jsonify({
+                'success': True,
+                'message': 'CV silindi; dosya temizliği başarısız oldu. Sistem yöneticisine başvurun.',
+                'cleanup_pending': True,
+            })
+
     return jsonify({'success': True, 'message': 'CV silindi.'})
 
 @app.route('/api/delete-job/<job_id>', methods=['DELETE'])
@@ -608,6 +664,8 @@ def job_search():
 @app.route('/api/job-search/upload-cv', methods=['POST'])
 def job_search_upload_cv():
 
+    filepath = None
+
     if 'file' not in request.files:
         return jsonify({'success': False, 'error': 'Dosya seçilmedi.'}), 400
 
@@ -625,17 +683,20 @@ def job_search_upload_cv():
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
         file.save(filepath)
 
+        if not validate_saved_cv(Path(filepath)):
+            return jsonify({'success': False, 'error': 'Dosya içeriği geçersiz veya desteklenmiyor.'}), 400
+
         parse_result = parse_file(filepath)
         raw_text = parse_result['text']
         warnings = parse_result['warnings']
         if not raw_text or len(raw_text.strip()) < 50:
-            os.remove(filepath)
+            remove_upload_file(Path(filepath))
             return jsonify({'success': False, 'error': 'PDF/DOCX\'den yeterli metin çıkarılamadı.'}), 400
 
         profile_data = extractive_cv_gen.parse_cv(raw_text)
 
         if not profile_data:
-            os.remove(filepath)
+            remove_upload_file(Path(filepath))
             return jsonify({'success': False, 'error': 'Profil parse edilemedi.'}), 500
 
         skills = nlp_engine.extract_skills(raw_text)
@@ -653,7 +714,7 @@ def job_search_upload_cv():
         )
         db.commit()
 
-        os.remove(filepath)
+        remove_upload_file(Path(filepath))
 
         return {
             'success': True,
@@ -664,8 +725,10 @@ def job_search_upload_cv():
             'warnings': warnings
         }
 
-    except Exception as e:
-        return jsonify({'success': False, 'error': f'Hata: {str(e)}'}), 500
+    except Exception:
+        app.logger.exception('Job search CV upload failed')
+        remove_upload_file(Path(filepath) if filepath else None)
+        return jsonify({'success': False, 'error': 'CV işlenemedi. Lütfen tekrar deneyin.'}), 500
 
 @app.route('/api/job-search/parse-job', methods=['POST'])
 def job_search_parse_job():
